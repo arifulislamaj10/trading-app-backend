@@ -13,7 +13,7 @@ const DEFAULT_LIMIT = 10;
  * Whitelist-only fields that users can update on their own profile.
  * Prevents privilege escalation (role, isVerified, subscriptionTier, etc.)
  */
-const ALLOWED_PROFILE_FIELDS = ['name', 'userProfileUrl', 'referralCode'];
+const ALLOWED_PROFILE_FIELDS = ['name', 'userProfileUrl', 'referralCode', 'timezone'];
 
 const update_profile_into_db = async (req: Request) => {
   const email = req?.user?.email;
@@ -67,6 +67,10 @@ const update_profile_into_db = async (req: Request) => {
   // Check if there are still valid fields to update after potentially deleting referralCode
   if (Object.keys(updateData).length === 0) {
     throw new AppError("No valid fields to update", httpStatus.BAD_REQUEST);
+  }
+
+  if (updateData.timezone !== undefined) {
+    updateData.timezoneManuallySet = true;
   }
 
   const result = await Account_Model.findOneAndUpdate(
@@ -202,8 +206,47 @@ const soft_delete_user = async (id: string) => {
   };
 };
 
+const isValidTimezone = (timezone: string) => {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: timezone });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Auto-detect timezone from client (browser).
+ * Only updates when the user has not manually set their timezone in settings.
+ */
+const sync_timezone_to_profile = async (email: string, timezone: string) => {
+  if (!isValidTimezone(timezone)) {
+    throw new AppError('Invalid IANA timezone', httpStatus.BAD_REQUEST);
+  }
+
+  const user = await Account_Model.findOne({ email });
+  if (!user) {
+    throw new AppError('User not found', httpStatus.NOT_FOUND);
+  }
+
+  if (user.timezoneManuallySet) {
+    return user;
+  }
+
+  if (user.timezone === timezone) {
+    return user;
+  }
+
+  return Account_Model.findOneAndUpdate(
+    { email },
+    { timezone },
+    { new: true }
+  );
+};
+
 export const user_services = {
   update_profile_into_db,
+  sync_timezone_to_profile,
   get_all_users_from_db,
   get_single_user_from_db,
   update_user_status,

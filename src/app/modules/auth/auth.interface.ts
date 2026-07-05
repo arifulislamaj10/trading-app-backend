@@ -40,6 +40,8 @@ export type TAccount = {
   // Training & trading access
   trainingCompletedAt?: Date | null;
   tradingUnlocked?: boolean;
+  timezone?: string;
+  timezoneManuallySet?: boolean;
 };
 
 export interface TRegisterPayload {

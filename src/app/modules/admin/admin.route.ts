@@ -10,7 +10,11 @@ const adminRouter = Router();
 adminRouter.use(auth('ADMIN'));
 
 adminRouter.get('/analytics', admin_controllers.get_platform_analytics);
-adminRouter.post('/broadcast', admin_controllers.broadcast_announcement);
+adminRouter.post(
+  '/broadcast',
+  RequestValidator(admin_validations.broadcast_announcement),
+  admin_controllers.broadcast_announcement
+);
 adminRouter.patch('/change-role', admin_controllers.change_user_role);
 adminRouter.get('/payments', admin_controllers.get_all_payments);
 adminRouter.patch(

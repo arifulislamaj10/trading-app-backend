@@ -9,6 +9,7 @@ import { scheduleSignalUsageReset } from "./app/utils/signal_usage_reset";
 import { scheduleExpiryNotifications } from "./app/utils/subscription_notifications";
 import { scheduleSignalPublish } from "./app/utils/signal_publish_scheduler";
 import { scheduleBadgeEvaluation } from "./app/utils/badge_evaluation_scheduler";
+import { scheduleAnnouncementDelivery } from "./app/utils/announcement_scheduler";
 import { logUploadStorageConfig } from "./app/utils/s3";
 
 async function main() {
@@ -31,6 +32,7 @@ async function main() {
     scheduleExpiryNotifications();
     scheduleSignalPublish();
     scheduleBadgeEvaluation();
+    scheduleAnnouncementDelivery();
 
     logUploadStorageConfig();
 

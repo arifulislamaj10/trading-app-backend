@@ -3,6 +3,15 @@ import httpStatus from 'http-status';
 import { Notification_Model, NotificationType } from './notification.schema';
 import { Types } from 'mongoose';
 import logger from '../../configs/logger';
+import {
+  audienceFromLegacyTargetRole,
+  BroadcastAudience,
+  BroadcastEventTime,
+  resolveAudienceRecipients,
+} from './notification.audience';
+
+export type { BroadcastAudience, BroadcastEventTime, AudienceType } from './notification.audience';
+export { resolveAudienceRecipients, audienceFromLegacyTargetRole } from './notification.audience';
 
 interface TCreateNotification {
   accountId: string;
@@ -184,38 +193,40 @@ const get_unread_count = async (accountId: string) => {
 };
 
 /**
- * Admin: broadcast announcement to all users
+ * Admin: broadcast announcement to a resolved audience
  */
 const broadcast_announcement = async (
   title: string,
   message: string,
   link?: string,
-  targetRole?: string
+  audience?: BroadcastAudience,
+  legacyTargetRole?: string,
+  eventTime?: BroadcastEventTime
 ) => {
-  const query: Record<string, unknown> = {};
-  if (targetRole) {
-    query.role = targetRole;
-  }
+  const resolvedAudience =
+    audience ?? audienceFromLegacyTargetRole(legacyTargetRole);
 
-  // Import Account_Model here to avoid circular dependency
-  const { Account_Model } = await import('../auth/auth.schema');
+  const recipientIds = await resolveAudienceRecipients(resolvedAudience);
 
-  const accounts = await Account_Model.find(query).select('_id');
-
-  if (accounts.length === 0) {
+  if (recipientIds.length === 0) {
     return { sentCount: 0 };
   }
 
-  const notifications = accounts.map((account) => ({
-    accountId: account._id.toString(),
+  const notificationData: Record<string, unknown> = {};
+  if (eventTime) {
+    notificationData.eventAt = eventTime.eventAt;
+    notificationData.eventTimezone = eventTime.eventTimezone;
+  }
+
+  const notifications = recipientIds.map((accountId) => ({
+    accountId,
     type: 'system_announcement' as NotificationType,
     title,
     message,
     link: link || '',
-    data: {},
+    data: notificationData,
   }));
 
-  // Use the centralized bulk creator (has error handling)
   const result = await create_many_notifications(notifications);
 
   return { sentCount: result.createdCount };

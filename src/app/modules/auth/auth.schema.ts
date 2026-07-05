@@ -43,6 +43,8 @@ const authSchema = new Schema<TAccount>({
 
     trainingCompletedAt: { type: Date, default: null },
     tradingUnlocked: { type: Boolean, default: false },
+    timezone: { type: String, default: 'UTC' },
+    timezoneManuallySet: { type: Boolean, default: false },
 }, {
     versionKey: false,
     timestamps: true

@@ -14,6 +14,13 @@ userRoute.patch(
   user_controllers.update_profile,
 );
 
+userRoute.patch(
+  "/sync-timezone",
+  auth("ADMIN", "USER", "MASTER"),
+  RequestValidator(user_validations.sync_timezone),
+  user_controllers.sync_timezone,
+);
+
 // Admin-only routes
 userRoute.get("/", auth("ADMIN"), user_controllers.get_all_users);
 userRoute.get("/:id", auth("ADMIN"), user_controllers.get_single_user);

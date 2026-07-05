@@ -186,20 +186,66 @@ const get_all_referrals = catchAsync(async (req, res) => {
 
 // Broadcast announcement
 const broadcast_announcement = catchAsync(async (req, res) => {
-  const { title, message, link, targetRole } = req.body;
+  const {
+    title,
+    message,
+    link,
+    audience,
+    targetRole,
+    role,
+    eventAt,
+    eventTimezone,
+    scheduledSendAt,
+  } = req.body;
+
+  const legacyTargetRole = targetRole ?? role;
+  const eventTime =
+    eventAt && eventTimezone ? { eventAt, eventTimezone } : undefined;
+
+  const { audienceFromLegacyTargetRole } = await import(
+    '../notification/notification.audience'
+  );
+  const resolvedAudience =
+    audience ?? audienceFromLegacyTargetRole(legacyTargetRole);
+
+  if (scheduledSendAt) {
+    const { scheduled_announcement_services } = await import(
+      '../notification/scheduled_announcement.service'
+    );
+
+    const result = await scheduled_announcement_services.schedule_announcement({
+      title,
+      message,
+      link,
+      audience: resolvedAudience,
+      eventTime,
+      scheduledSendAt: new Date(scheduledSendAt),
+      createdBy: req.user!.userId,
+    });
+
+    manageResponse(res, {
+      success: true,
+      statusCode: httpStatus.OK,
+      message: 'Announcement scheduled successfully',
+      data: { ...result, scheduled: true },
+    });
+    return;
+  }
 
   const result = await notification_services.broadcast_announcement(
     title,
     message,
     link,
-    targetRole
+    resolvedAudience,
+    legacyTargetRole,
+    eventTime
   );
 
   manageResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
     message: `Announcement sent to ${result.sentCount} users`,
-    data: result,
+    data: { ...result, scheduled: false },
   });
 });
 
