@@ -18,6 +18,13 @@ export interface MtAssistResult {
   model: string;
 }
 
+export interface SignalExtractionResult {
+  signal: Record<string, unknown> | null;
+  confidence: number;
+  notes: string[];
+  model: string;
+}
+
 export interface SignalValidationInput {
   title: string;
   description?: string;

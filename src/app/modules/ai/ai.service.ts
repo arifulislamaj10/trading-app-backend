@@ -1,13 +1,16 @@
 import { configs } from '../../configs';
 import {
   MtAssistResult,
+  SignalExtractionResult,
   SignalValidationInput,
   SignalValidationResult,
 } from './ai.interface';
 import {
   buildAssistUserPrompt,
+  buildExtractionUserPrompt,
   buildValidationUserPrompt,
   MT_ASSIST_SYSTEM_PROMPT,
+  SIGNAL_EXTRACTION_SYSTEM_PROMPT,
   SIGNAL_VALIDATION_SYSTEM_PROMPT,
 } from './ai.prompts';
 import { chatJsonCompletion, isOpenAiConfigured } from './openai.client';
@@ -107,8 +110,42 @@ const assist_master_signal = async (
   };
 };
 
+/**
+ * Extract structured signal fields from loosely-formatted JSON (or JSON-like text).
+ * Returns null when the AI provider is not configured or the request fails.
+ */
+const extract_signal_from_json = async (
+  rawContent: string
+): Promise<SignalExtractionResult | null> => {
+  if (!isOpenAiConfigured()) return null;
+
+  const raw = await chatJsonCompletion(
+    SIGNAL_EXTRACTION_SYSTEM_PROMPT,
+    buildExtractionUserPrompt(rawContent)
+  );
+
+  if (!raw) return null;
+
+  const parsed = parseJson<{
+    signal?: Record<string, unknown> | null;
+    confidence?: number;
+    notes?: string[];
+  }>(raw);
+
+  if (!parsed) return null;
+
+  return {
+    signal:
+      parsed.signal && typeof parsed.signal === 'object' ? parsed.signal : null,
+    confidence: Math.min(100, Math.max(0, Number(parsed.confidence) || 0)),
+    notes: Array.isArray(parsed.notes) ? parsed.notes.map(String) : [],
+    model: configs.ai.model,
+  };
+};
+
 export const ai_services = {
   validate_signal,
   assist_master_signal,
+  extract_signal_from_json,
   isOpenAiConfigured,
 };

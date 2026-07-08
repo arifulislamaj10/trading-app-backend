@@ -10,7 +10,7 @@ export const signalSwaggerDocs = {
         { name: "search", in: "query", schema: { type: "string" }, description: "Search by signal title or symbol" },
         { name: "assetType", in: "query", schema: { type: "string", enum: ["forex", "crypto", "stocks", "indices", "commodities"] } },
         { name: "signalType", in: "query", schema: { type: "string", enum: ["long", "short"] } },
-        { name: "status", in: "query", schema: { type: "string", enum: ["draft", "scheduled", "active", "closed", "expired", "canceled"] } },
+        { name: "status", in: "query", schema: { type: "string", enum: ["draft", "scheduled", "active", "completed", "expired", "canceled"] } },
         { name: "publishType", in: "query", schema: { type: "string", enum: ["instant", "scheduled"] } },
         { name: "isPremium", in: "query", schema: { type: "boolean" } },
         { name: "authorId", in: "query", schema: { type: "string" }, description: "Filter by Master Trader ID" },
@@ -136,7 +136,7 @@ export const signalSwaggerDocs = {
     patch: {
       tags: ["Signals"],
       summary: "Update or close a signal",
-      description: "Update your own signal. To close a signal, set `status: 'closed'` and provide `resultPnl`. This triggers master win/loss stats update.",
+      description: "Update your own signal. To close a signal, set `status: 'completed'` and provide `resultPnl`. This triggers master win/loss stats update.",
       security: [{ bearerAuth: [] }],
       parameters: [
         { name: "id", in: "path", required: true, schema: { type: "string" } },
@@ -154,7 +154,7 @@ export const signalSwaggerDocs = {
                 takeProfit1: { type: "number", example: 1.091 },
                 tags: { type: "array", items: { type: "string" } },
                 videoUrl: { type: "string", format: "uri" },
-                status: { type: "string", enum: ["closed"], example: "closed", description: "Set to 'closed' to close the signal. Must include resultPnl." },                resultPnl: { type: "number", example: 2.5, description: "Required when closing. Profit/loss percentage. Positive = win." },
+                status: { type: "string", enum: ["completed"], example: "completed", description: "Set to 'completed' to close the signal. Must include resultPnl." },                resultPnl: { type: "number", example: 2.5, description: "Required when closing. Profit/loss percentage. Positive = win." },
                 closeNotes: { type: "string", example: "Hit TP2 target" },
               },
             },
@@ -193,7 +193,7 @@ export const signalSwaggerDocs = {
       parameters: [
         { name: "page", in: "query", schema: { type: "integer", default: 1 } },
         { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
-        { name: "status", in: "query", schema: { type: "string", enum: ["active", "closed", "expired", "canceled"] } },
+        { name: "status", in: "query", schema: { type: "string", enum: ["active", "completed", "expired", "canceled"] } },
       ],
       responses: {
         200: { description: "My signals retrieved successfully" },

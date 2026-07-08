@@ -15,20 +15,36 @@ signalRouter.get('/my/signals', auth('MASTER'), signal_controllers.get_my_signal
 signalRouter.get('/review-queue', auth('MASTER'), signal_controllers.get_review_queue);
 signalRouter.post(
   '/',
-  auth('MASTER'),
+  auth('MASTER', 'ADMIN'),
   aiLimiter,
   RequestValidator(signal_validations.createSignalSchema),
   signal_controllers.create_signal,
 );
 
 signalRouter.post(
+  '/from-json',
+  auth('MASTER', 'ADMIN'),
+  aiLimiter,
+  RequestValidator(signal_validations.createSignalFromJsonSchema),
+  signal_controllers.create_signal_from_json,
+);
+
+signalRouter.post(
+  '/from-json/ai-extract',
+  auth('MASTER', 'ADMIN'),
+  aiLimiter,
+  RequestValidator(signal_validations.extractSignalFromJsonSchema),
+  signal_controllers.create_signal_from_loose_json,
+);
+
+signalRouter.post(
   '/:id/confirm',
-  auth('MASTER'),
+  auth('MASTER', 'ADMIN'),
   signal_controllers.confirm_signal,
 );
 signalRouter.post(
   '/:id/reject',
-  auth('MASTER'),
+  auth('MASTER', 'ADMIN'),
   RequestValidator(signal_validations.rejectSignalSchema),
   signal_controllers.reject_signal,
 );
@@ -49,11 +65,11 @@ signalRouter.post(
 signalRouter.get('/:id', optionalAuth, signal_controllers.get_single_signal);
 signalRouter.patch(
   '/:id',
-  auth('MASTER'),
+  auth('MASTER', 'ADMIN'),
   RequestValidator(signal_validations.updateSignalSchema),
   signal_controllers.update_signal,
 );
-signalRouter.delete('/:id', auth('MASTER'), signal_controllers.delete_signal);
+signalRouter.delete('/:id', auth('MASTER', 'ADMIN'), signal_controllers.delete_signal);
 
 // Engagement routes (authenticated users)
 signalRouter.post('/:id/like', auth('ADMIN', 'USER', 'MASTER'), signal_controllers.like_signal);

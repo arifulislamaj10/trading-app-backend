@@ -29,6 +29,21 @@ const get_my_notifications = catchAsync(async (req, res) => {
   });
 });
 
+const get_notification_by_id = catchAsync(async (req, res) => {
+  const accountId = req.user!.userId;
+  const result = await notification_services.get_notification_by_id(
+    accountId,
+    req.params.id as string
+  );
+
+  manageResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'Notification retrieved',
+    data: result,
+  });
+});
+
 const update_notification = catchAsync(async (req, res) => {
   const accountId = req.user!.userId;
   const notificationId = req.params.id as string | undefined;
@@ -93,6 +108,7 @@ const get_unread_count = catchAsync(async (req, res) => {
 
 export const notification_controllers = {
   get_my_notifications,
+  get_notification_by_id,
   update_notification,
   delete_notification,
   get_unread_count,

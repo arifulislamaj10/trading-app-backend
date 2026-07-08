@@ -92,3 +92,59 @@ describe('ai_services.assist_master_signal', () => {
     expect(result.suggestions.length).toBeGreaterThan(0);
   });
 });
+
+describe('ai_services.extract_signal_from_json', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (openaiClient.isOpenAiConfigured as jest.Mock).mockReturnValue(true);
+  });
+
+  it('returns null when Groq is not configured', async () => {
+    (openaiClient.isOpenAiConfigured as jest.Mock).mockReturnValue(false);
+    const result = await ai_services.extract_signal_from_json('{"pair":"BTCUSDT"}');
+    expect(result).toBeNull();
+    expect(mockChat).not.toHaveBeenCalled();
+  });
+
+  it('parses extracted signal from Groq response', async () => {
+    mockChat.mockResolvedValue(
+      JSON.stringify({
+        signal: {
+          title: 'BTCUSDT Long H1',
+          assetType: 'crypto',
+          symbol: 'BTCUSDT',
+          signalType: 'long',
+          timeframe: 'h1',
+          entryPrice: 50000,
+          stopLoss: 49000,
+          takeProfit1: 52000,
+        },
+        confidence: 90,
+        notes: ['Mapped "pair" to symbol'],
+      })
+    );
+    const result = await ai_services.extract_signal_from_json(
+      '{"pair":"BTCUSDT","side":"buy","entry":50000,"sl":49000,"tp":52000,"tf":"1h"}'
+    );
+    expect(result).not.toBeNull();
+    expect(result!.signal).toMatchObject({ symbol: 'BTCUSDT', signalType: 'long' });
+    expect(result!.confidence).toBe(90);
+    expect(result!.notes).toContain('Mapped "pair" to symbol');
+  });
+
+  it('returns null signal when extraction is impossible', async () => {
+    mockChat.mockResolvedValue(
+      JSON.stringify({ signal: null, confidence: 0, notes: ['No entry price found'] })
+    );
+    const result = await ai_services.extract_signal_from_json('{"foo":"bar"}');
+    expect(result).not.toBeNull();
+    expect(result!.signal).toBeNull();
+    expect(result!.notes).toContain('No entry price found');
+  });
+
+  it('returns null when Groq returns unparseable output', async () => {
+    mockChat.mockResolvedValue('not json');
+    const result = await ai_services.extract_signal_from_json('{"foo":"bar"}');
+    expect(result).toBeNull();
+  });
+});

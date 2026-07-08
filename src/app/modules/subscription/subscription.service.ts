@@ -9,10 +9,13 @@ import { configs } from '../../configs';
 import { Types } from 'mongoose';
 
 export const subscription_services = {
-  // Get all active subscription plans
+  // Get all active subscription plans (monthly first, then yearly)
   async get_all_plans() {
-    const plans = await SubscriptionPlan_Model.find({ isActive: true }).sort({ price: 1 });
-    return plans;
+    const plans = await SubscriptionPlan_Model.find({ isActive: true });
+    return plans.sort((a, b) => {
+      if (a.interval === b.interval) return a.price - b.price;
+      return a.interval === "month" ? -1 : 1;
+    });
   },
 
   // Create checkout session
@@ -57,30 +60,30 @@ export const subscription_services = {
     const successUrl = `${returnUrl || configs.stripe.frontend_url}/subscription/success?session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${returnUrl || configs.stripe.frontend_url}/subscription/cancel`;
 
-    // Create checkout session (with 7-day trial for first-time subscribers)
-    const hasTrial = !subscription || subscription.status === 'canceled';
+    // Trial applies when the plan has trialDays configured and the user has not used a trial yet
+    const trialDays = plan.trialDays ?? 0;
+    const canUseTrial =
+      trialDays > 0 &&
+      !account.trialUsed &&
+      (!subscription || subscription.status === "canceled");
     let session;
 
-    // Ensure stripeCustomerId is defined before passing to functions
     const customerId = stripeCustomerId!;
 
-    // Validate that plan has Stripe price ID
     if (!plan.stripePriceId) {
       throw new AppError('Stripe price ID not configured for this plan', httpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    if (hasTrial && plan.price > 0) {
-      // Offer 7-day trial for new subscribers
+    if (canUseTrial && plan.price > 0) {
       session = await stripeService.createCheckoutSessionWithTrial(
         customerId,
         plan.stripePriceId,
         successUrl,
         cancelUrl,
-        7, // 7 days trial
+        trialDays,
         { accountId, planId }
       );
     } else {
-      // Regular checkout
       session = await stripeService.createCheckoutSession(
         customerId,
         plan.stripePriceId,
@@ -93,7 +96,7 @@ export const subscription_services = {
     return {
       checkoutUrl: session.url,
       sessionId: session.id,
-      trialDays: hasTrial ? 7 : 0,
+      trialDays: canUseTrial ? trialDays : 0,
     };
   },
 
@@ -125,7 +128,7 @@ export const subscription_services = {
       daysRemaining: subscription.currentPeriodEnd
         ? Math.ceil((subscription.currentPeriodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         : 0,
-      tier: account?.subscriptionTier || subscription.planId.split('_')[0],
+      tier: account?.subscriptionTier || plan?.tier || 'free',
     };
   },
 
@@ -192,24 +195,35 @@ export const subscription_services = {
       throw new AppError('Plan not found or inactive', httpStatus.NOT_FOUND);
     }
 
-    const tierLevels = { free: 0, basic: 1, pro: 2, master: 3 };
-    const currentTier = tierLevels[subscription.planId.split('_')[0] as keyof typeof tierLevels];
-    const newTier = tierLevels[newPlan.tier];
+    const currentPlan = await SubscriptionPlan_Model.findOne({
+      planId: subscription.planId,
+    });
+    if (!currentPlan) {
+      throw new AppError('Current plan not found', httpStatus.NOT_FOUND);
+    }
 
-    // Validate direction matches tier change
-    if (direction === 'upgrade' && newTier <= currentTier) {
+    const comparePlans = (from: typeof currentPlan, to: typeof newPlan) => {
+      if (from.tier !== to.tier) {
+        const tierLevels = { free: 0, basic: 1, pro: 2, master: 3 };
+        return tierLevels[to.tier] - tierLevels[from.tier];
+      }
+      return to.price - from.price;
+    };
+
+    const planDelta = comparePlans(currentPlan, newPlan);
+
+    if (direction === 'upgrade' && planDelta <= 0) {
       throw new AppError('New plan must be higher than current plan for upgrade', httpStatus.BAD_REQUEST);
     }
-    if (direction === 'downgrade' && newTier >= currentTier) {
+    if (direction === 'downgrade' && planDelta >= 0) {
       throw new AppError('New plan must be lower than current plan for downgrade', httpStatus.BAD_REQUEST);
     }
 
     if (!direction) {
-      // Auto-detect direction
-      if (newTier === currentTier) {
-        throw new AppError('New plan is the same tier as current plan', httpStatus.BAD_REQUEST);
+      if (planDelta === 0) {
+        throw new AppError('New plan is the same as the current plan', httpStatus.BAD_REQUEST);
       }
-      direction = newTier > currentTier ? 'upgrade' : 'downgrade';
+      direction = planDelta > 0 ? 'upgrade' : 'downgrade';
     }
 
     // Validate that new plan has Stripe price ID

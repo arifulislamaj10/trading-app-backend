@@ -264,7 +264,18 @@ const get_my_profile_from_db = async (email: string): Promise<Omit<TAccount, 'pa
     throw new AppError(AUTH_ERRORS.ACCOUNT_NOT_FOUND, httpStatus.NOT_FOUND);
   }
 
-  return account as unknown as Omit<TAccount, 'password'>;
+  const roleLabels: Record<string, string> = {
+    USER: 'User',
+    MASTER: 'Master Trader',
+    ADMIN: 'Admin',
+  };
+
+  const profile = account.toObject();
+  return {
+    ...profile,
+    roleLabel: account.role ? roleLabels[account.role] || account.role : 'User',
+    isMasterTrader: account.role === 'MASTER',
+  } as unknown as Omit<TAccount, 'password'>;
 };
 
 /**

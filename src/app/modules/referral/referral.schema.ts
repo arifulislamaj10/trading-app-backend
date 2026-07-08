@@ -22,6 +22,13 @@ const referralSchema = new Schema<TReferral>(
       type: Number,
       default: 0,
     },
+    inviteeSubscriptionTier: {
+      type: String,
+      enum: ["free", "basic", "pro", "master"],
+    },
+    completedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,

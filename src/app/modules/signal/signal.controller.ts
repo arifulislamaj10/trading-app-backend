@@ -15,6 +15,33 @@ const create_signal = catchAsync(async (req, res) => {
   });
 });
 
+const create_signal_from_json = catchAsync(async (req, res) => {
+  const accountId = req.user!.userId;
+  const result = await signal_services.create_signal_from_json(accountId, req.body);
+
+  manageResponse(res, {
+    success: true,
+    statusCode: httpStatus.CREATED,
+    message: "Signal created from JSON successfully",
+    data: result,
+  });
+});
+
+const create_signal_from_loose_json = catchAsync(async (req, res) => {
+  const accountId = req.user!.userId;
+  const result = await signal_services.create_signal_from_loose_json(
+    accountId,
+    req.body,
+  );
+
+  manageResponse(res, {
+    success: true,
+    statusCode: httpStatus.CREATED,
+    message: "Signal created from JSON with AI extraction",
+    data: result,
+  });
+});
+
 const update_signal = catchAsync(async (req, res) => {
   const accountId = req.user!.userId;
   const result = await signal_services.update_signal(
@@ -276,6 +303,8 @@ const ai_assist_signal = catchAsync(async (req, res) => {
 
 export const signal_controllers = {
   create_signal,
+  create_signal_from_json,
+  create_signal_from_loose_json,
   update_signal,
   delete_signal,
   get_all_signals,

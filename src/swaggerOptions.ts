@@ -122,7 +122,7 @@ export const swaggerOptions = {
         },
         SignalStatus: {
           type: "string",
-          enum: ["active", "closed", "expired", "canceled"],
+          enum: ["active", "completed", "expired", "canceled"],
           description: "Status of a trading signal",
           example: "active",
         },
@@ -184,6 +184,23 @@ export const swaggerOptions = {
             badge: { type: "string", example: "Bronze" },
             totalRewards: { type: "number", example: 50 },
             walletBalance: { type: "number", example: 150 },
+            conversionRate: {
+              type: "number",
+              example: 50,
+              description: "Personal conversion rate (% of referrals completed)",
+            },
+            campaignPerformance: {
+              type: "object",
+              description: "Platform-wide campaign progress plus personal monthly stats",
+              properties: {
+                goal: { type: "integer", example: 1000 },
+                completed: { type: "integer", example: 250 },
+                progressPercent: { type: "number", example: 25 },
+                thisMonthCompleted: { type: "integer", example: 3 },
+                lastMonthCompleted: { type: "integer", example: 2 },
+                monthlyGrowthPercent: { type: "number", example: 50 },
+              },
+            },
           },
         },
         WithdrawalStatus: {

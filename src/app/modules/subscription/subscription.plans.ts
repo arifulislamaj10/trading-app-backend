@@ -1,5 +1,5 @@
 import { model, Schema } from "mongoose";
-// test
+
 export interface ISubscriptionPlan {
   planId: string;
   name: string;
@@ -7,30 +7,32 @@ export interface ISubscriptionPlan {
   price: number; // In dollars
   currency: string;
   interval: "month" | "year";
-  stripeProductId?: string; // Stripe Product ID
-  stripePriceId?: string; // Stripe Price ID (optional for development)
+  stripeProductId?: string;
+  stripePriceId?: string;
   features: string[];
   signalLimit: number; // -1 for unlimited
   mediaAccess: boolean;
   prioritySupport: boolean;
   isActive: boolean;
-  durationInDays?: number; // Optional: duration of the plan in days
+  durationInDays?: number;
   tier: "free" | "basic" | "pro" | "master";
-  syncedToStripe: boolean; // Track if plan is synced with Stripe
+  trialDays: number;
+  affiliateBonusPercent?: number;
+  syncedToStripe: boolean;
 }
 
 const subscriptionPlanSchema = new Schema<ISubscriptionPlan>(
   {
-    planId: { type: String, required: true }, // Indexed via schema.index() below
+    planId: { type: String, required: true },
     name: { type: String, required: true },
     description: { type: String, required: true },
-    price: { type: Number, required: true }, // In dollars
+    price: { type: Number, required: true },
     currency: { type: String, default: "usd" },
     interval: { type: String, enum: ["month", "year"], default: "month" },
-    stripeProductId: { type: String }, // Stripe Product ID (optional for dev)
-    stripePriceId: { type: String }, // Stripe Price ID (optional for dev)
+    stripeProductId: { type: String },
+    stripePriceId: { type: String },
     features: { type: [String], required: true },
-    signalLimit: { type: Number, default: -1 }, // -1 for unlimited
+    signalLimit: { type: Number, default: -1 },
     mediaAccess: { type: Boolean, default: false },
     prioritySupport: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
@@ -38,9 +40,11 @@ const subscriptionPlanSchema = new Schema<ISubscriptionPlan>(
     tier: {
       type: String,
       enum: ["free", "basic", "pro", "master"],
-      default: "basic",
+      default: "pro",
     },
-    syncedToStripe: { type: Boolean, default: false }, // Track Stripe sync status
+    trialDays: { type: Number, default: 0, min: 0 },
+    affiliateBonusPercent: { type: Number, default: 0, min: 0 },
+    syncedToStripe: { type: Boolean, default: false },
   },
   {
     versionKey: false,
@@ -48,67 +52,106 @@ const subscriptionPlanSchema = new Schema<ISubscriptionPlan>(
   },
 );
 
-// Indexes for optimized queries (defined here to avoid duplicate index warnings)
-subscriptionPlanSchema.index({ planId: 1 }, { unique: true }); // Unique plan identifier
-subscriptionPlanSchema.index({ isActive: 1 }); // Filter active plans
-subscriptionPlanSchema.index({ tier: 1 }); // Tier-based queries
-subscriptionPlanSchema.index({ syncedToStripe: 1 }); // Filter synced plans
+subscriptionPlanSchema.index({ planId: 1 }, { unique: true });
+subscriptionPlanSchema.index({ isActive: 1 });
+subscriptionPlanSchema.index({ tier: 1 });
+subscriptionPlanSchema.index({ syncedToStripe: 1 });
 
 export const SubscriptionPlan_Model = model<ISubscriptionPlan>(
   "subscriptionPlan",
   subscriptionPlanSchema,
 );
 
-// Default plans to seed on first run
+export const SUBSCRIPTION_TIER_ORDER = ["free", "basic", "pro", "master"] as const;
+export type SubscriptionTierName = (typeof SUBSCRIPTION_TIER_ORDER)[number];
+
+const SHARED_FEATURES = [
+  "Over 300 Copilot uses per day",
+  "Unlock more trades",
+  "Pro support from our team",
+  "Early access to new features",
+];
+
+// Only two real subscription plans for the product
 export const DEFAULT_PLANS: Omit<ISubscriptionPlan, "_id">[] = [
   {
-    planId: "pro_monthly",
-    name: "Monthly Subscription",
-    description: "Full access with monthly billing",
-    price: 49, // $49.00
+    planId: "monthly",
+    name: "Monthly",
+    description: "Unlock buy/sell signals and trade history. Billed monthly.",
+    price: 49,
     currency: "usd",
     interval: "month",
-    stripePriceId: "price_pro_monthly",
-    features: [
-      "Unlimited signals",
-      "All Master Traders",
-      "Chart images & video analysis",
-      "Priority support",
-      "Advanced analytics",
-      "Early access to new features",
-      "Leaderboard eligibility",
-    ],
-    signalLimit: -1, // Unlimited
+    stripePriceId: "price_monthly",
+    features: SHARED_FEATURES,
+    signalLimit: -1,
     mediaAccess: true,
     prioritySupport: true,
     isActive: true,
     tier: "pro",
+    trialDays: 0,
+    affiliateBonusPercent: 50,
     syncedToStripe: false,
   },
   {
-    planId: "pro_yearly",
-    name: "Yearly Subscription",
-    description: "Full access with yearly billing (Save 2 months)",
-    price: 500, // $500.00 (equivalent to 10 months)
+    planId: "yearly",
+    name: "Yearly",
+    description: "Unlock buy/sell signals and trade history. Billed yearly.",
+    price: 500,
     currency: "usd",
     interval: "year",
-    stripePriceId: "price_pro_yearly",
-    features: [
-      "Unlimited signals",
-      "All Master Traders",
-      "Chart images & video analysis",
-      "Priority support",
-      "Advanced analytics",
-      "Early access to new features",
-      "Leaderboard eligibility",
-      "Save 2 months",
-    ],
-    signalLimit: -1, // Unlimited
+    stripePriceId: "price_yearly",
+    features: SHARED_FEATURES,
+    signalLimit: -1,
     mediaAccess: true,
     prioritySupport: true,
     isActive: true,
     tier: "pro",
+    trialDays: 7,
+    affiliateBonusPercent: 0,
     syncedToStripe: false,
   },
 ];
 
+export const getYearlySavings = (monthlyPrice = 49, yearlyPrice = 500) =>
+  Math.max(0, monthlyPrice * 12 - yearlyPrice);
+
+/** Maps legacy plan IDs (e.g. pro_yearly) to current plan IDs (yearly). */
+export const LEGACY_PLAN_ID_MAP: Record<string, string> = {
+  pro_yearly: "yearly",
+  pro_monthly: "monthly",
+  basic_monthly: "monthly",
+  basic_yearly: "yearly",
+  master_monthly: "monthly",
+  master_yearly: "yearly",
+  free: "free",
+};
+
+export function normalizePlanId(
+  planId: string,
+  knownPlanIds?: Set<string> | Record<string, unknown>,
+): string {
+  if (!planId) return "free";
+
+  if (knownPlanIds) {
+    const isKnown =
+      knownPlanIds instanceof Set
+        ? knownPlanIds.has(planId)
+        : planId in knownPlanIds;
+    if (isKnown) return planId;
+  }
+
+  if (LEGACY_PLAN_ID_MAP[planId]) return LEGACY_PLAN_ID_MAP[planId];
+  if (planId.endsWith("_yearly")) return "yearly";
+  if (planId.endsWith("_monthly")) return "monthly";
+
+  return planId;
+}
+
+export function resolvePlanName(
+  planId: string,
+  planNameMap: Record<string, string>,
+  knownPlanIds?: Set<string>,
+): string {
+  const normalized = normalizePlanId(planId, knownPlanIds ?? planNameMap);
+  return planNameMap[normalized] || planNameMap[planId] || normalized;
+}

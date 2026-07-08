@@ -91,7 +91,7 @@ const get_top_traders = async (
       // Get recent signals count for activity context
       const recentSignalsCount = await Signal_Model.countDocuments({
         authorId: master.accountId,
-        status: 'closed',
+        status: 'completed',
         closedAt: { $gte: startDate },
       });
 
@@ -157,7 +157,7 @@ const get_trader_performance = async (accountId: string, currentUserId?: string)
   // Get all signals for detailed breakdown
   const signals = await Signal_Model.find({
     authorId: new Types.ObjectId(accountId),
-    status: 'closed',
+    status: 'completed',
   }).sort({ closedAt: -1 });
 
   const profitableSignals = signals.filter((s) => (s.resultPnl || 0) > 0);

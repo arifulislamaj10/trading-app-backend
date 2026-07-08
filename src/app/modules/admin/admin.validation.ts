@@ -48,6 +48,9 @@ const update_subscription_plan = z.object({
   name: z.string().min(1).optional(),
   price: z.number().min(0).optional(),
   durationInDays: z.number().min(1).optional(),
+  trialDays: z.number().min(0).max(90).optional(),
+  affiliateBonusPercent: z.number().min(0).max(100).optional(),
+  description: z.string().min(1).optional(),
   features: z.array(z.string()).optional(),
   isActive: z.boolean().optional(),
 });
@@ -60,9 +63,10 @@ const broadcast_announcement = z
     audience: audienceSchema.optional(),
     targetRole: z.enum(['USER', 'MASTER', 'ADMIN']).optional(),
     role: z.enum(['USER', 'MASTER', 'ADMIN']).optional(),
-    eventAt: z.string().datetime().optional(),
+    eventAt: z.string().min(1).optional(),
     eventTimezone: z.string().optional(),
-    scheduledSendAt: z.string().datetime().optional(),
+    scheduledSendAt: z.string().min(1).optional(),
+    scheduledSendTimezone: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.eventAt && !data.eventTimezone) {
@@ -79,18 +83,35 @@ const broadcast_announcement = z
         path: ['eventTimezone'],
       });
     }
+    if (data.eventAt) {
+      const eventAt = new Date(data.eventAt);
+      if (Number.isNaN(eventAt.getTime())) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Invalid event date',
+          path: ['eventAt'],
+        });
+      }
+    }
+    if (data.scheduledSendTimezone && !isValidTimezone(data.scheduledSendTimezone)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Invalid delivery timezone',
+        path: ['scheduledSendTimezone'],
+      });
+    }
     if (data.scheduledSendAt) {
       const sendAt = new Date(data.scheduledSendAt);
       if (Number.isNaN(sendAt.getTime())) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Invalid scheduledSendAt date',
+          message: 'Invalid scheduled delivery date',
           path: ['scheduledSendAt'],
         });
-      } else if (sendAt.getTime() <= Date.now()) {
+      } else if (sendAt.getTime() <= Date.now() - 5000) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'scheduledSendAt must be in the future',
+          message: 'Scheduled delivery must be in the future',
           path: ['scheduledSendAt'],
         });
       }

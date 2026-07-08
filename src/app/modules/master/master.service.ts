@@ -246,18 +246,18 @@ const get_master_stats = async (accountId: string) => {
 
   const completedSignals = await Signal_Model.countDocuments({ 
     authorId,
-    status: { $in: ['closed', 'completed', 'won', 'lost'] }
+    status: { $in: ['completed', 'won', 'lost'] }
   });
 
   const winningSignals = await Signal_Model.countDocuments({
     authorId,
-    status: { $in: ['closed', 'completed', 'won', 'lost'] },
+    status: { $in: ['completed', 'won', 'lost'] },
     resultPnl: { $gt: 0 }
   });
 
   const losingSignals = await Signal_Model.countDocuments({
     authorId,
-    status: { $in: ['closed', 'completed', 'won', 'lost'] },
+    status: { $in: ['completed', 'won', 'lost'] },
     resultPnl: { $lt: 0 }
   });
 
@@ -276,7 +276,7 @@ const get_master_stats = async (accountId: string) => {
         avgProfit: { 
           $avg: { 
             $cond: [
-              { $in: ['$status', ['closed', 'completed', 'won', 'lost']] },
+              { $in: ['$status', ['completed', 'won', 'lost']] },
               '$resultPnl',
               null
             ] 
@@ -296,6 +296,16 @@ const get_master_stats = async (accountId: string) => {
 
   // Accurate follower count from Follow_Model
   const totalFollowers = await Follow_Model.countDocuments({ masterId: authorId });
+
+  const copiedTradesCount = await Copied_Trade_Model.countDocuments({ masterId: authorId });
+  const copiedTradesCompleted = await Copied_Trade_Model.countDocuments({
+    masterId: authorId,
+    status: 'completed',
+  });
+  const copiedTradesPending = await Copied_Trade_Model.countDocuments({
+    masterId: authorId,
+    status: 'pending',
+  });
 
   // Update master record with fresh stats to keep it synchronized
   await Master_Model.findOneAndUpdate(
@@ -322,6 +332,21 @@ const get_master_stats = async (accountId: string) => {
     followerCount: totalFollowers,
     totalLikes: stats.totalLikes || 0,
     totalBookmarks: stats.totalBookmarks || 0,
+    copiedTradesCount,
+    copiedTradesCompleted,
+    copiedTradesPending,
+    statusDefinitions: {
+      activeSignals:
+        'Signals currently open and visible to followers (status: active or published).',
+      completedSignals:
+        'Signals finished by you with a result logged (status: completed/won/lost).',
+      copiedTradesCount:
+        'Total number of users who copied your signals into their trade journal.',
+      copiedTradesCompleted:
+        'Copied trades where the copier logged a completed result.',
+      closedVsCompleted:
+        'Completed means the trade is finished with a result logged. Active means the trade is still open.',
+    },
   };
 };
 
@@ -341,7 +366,7 @@ const get_master_analytics = async (accountId: string) => {
 
   // 2. Performance over time (Monthly)
   const monthlyPerformance = await Signal_Model.aggregate([
-    { $match: { authorId, status: { $in: ['closed', 'completed', 'won', 'lost'] } } },
+    { $match: { authorId, status: { $in: ['completed', 'won', 'lost'] } } },
     {
       $group: {
         _id: {

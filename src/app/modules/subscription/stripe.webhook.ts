@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import Stripe from "stripe";
 import { configs } from "../../configs";
 import { Subscription_Model } from "./subscription.schema";
+import { SubscriptionPlan_Model } from "./subscription.plans";
 import { Payment_Model } from "./payment.schema";
 import { Account_Model } from "../auth/auth.schema";
 import { referral_services } from "../referral/referral.service";
@@ -189,23 +190,29 @@ async function handleCheckoutCompleted(session: any) {
       { upsert: true, new: true },
     );
 
-    // Update account
-    await Account_Model.findByIdAndUpdate(accountId, {
+    // Resolve tier from the database plan (not planId string parsing)
+    const { SubscriptionPlan_Model: PlanModel } = await import("./subscription.plans");
+    const plan = await PlanModel.findOne({ planId });
+    const subscriptionTier = plan?.tier ?? "pro";
+    const planName = plan?.name ?? planId;
+    const accountUpdate: Record<string, unknown> = {
       stripeCustomerId: session.customer as string,
       subscriptionStatus: stripeSubscription.status,
-      subscriptionTier: planId.split("_")[0],
+      subscriptionTier,
       subscriptionExpiresAt: new Date(
         stripeSubscription.current_period_end * 1000,
       ),
-    });
+    };
+
+    if (stripeSubscription.status === "trialing") {
+      accountUpdate.trialUsed = true;
+    }
+
+    // Update account
+    await Account_Model.findByIdAndUpdate(accountId, accountUpdate);
 
     // Handle Referral logic
     await referral_services.complete_referral_in_db(accountId);
-    // Notify user about successful subscription activation
-    const planName = planId
-      .split("_")
-      .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
     await notification_services.create_notification({
       accountId,
       type: "subscription_active",
@@ -399,10 +406,12 @@ async function handleSubscriptionUpdated(stripeSub: any) {
         updates.planId = planId;
 
         // Also update account tier based on new plan
-        const tier = planId.split("_")[0];
-        await Account_Model.findByIdAndUpdate(subscription.accountId, {
-          subscriptionTier: tier,
-        });
+        const tier = planId ? (await SubscriptionPlan_Model.findOne({ planId }))?.tier : null;
+        if (tier) {
+          await Account_Model.findByIdAndUpdate(subscription.accountId, {
+            subscriptionTier: tier,
+          });
+        }
       }
     }
 

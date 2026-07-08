@@ -232,10 +232,28 @@ const broadcast_announcement = async (
   return { sentCount: result.createdCount };
 };
 
+const get_notification_by_id = async (accountId: string, notificationId: string) => {
+  if (!Types.ObjectId.isValid(notificationId)) {
+    throw new AppError('Invalid notification ID', httpStatus.BAD_REQUEST);
+  }
+
+  const notification = await Notification_Model.findOne({
+    _id: new Types.ObjectId(notificationId),
+    accountId: new Types.ObjectId(accountId),
+  });
+
+  if (!notification) {
+    throw new AppError('Notification not found', httpStatus.NOT_FOUND);
+  }
+
+  return notification;
+};
+
 export const notification_services = {
   create_notification,
   create_many_notifications,
   get_my_notifications,
+  get_notification_by_id,
   update_notification,
   mark_as_read,
   mark_all_as_read,

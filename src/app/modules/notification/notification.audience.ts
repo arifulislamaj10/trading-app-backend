@@ -105,7 +105,9 @@ export const resolveAudienceRecipients = async (
 
     case 'ACTIVE_SUBSCRIBERS': {
       const { Subscription_Model } = await import('../subscription/subscription.schema');
-      const subs = await Subscription_Model.find({ status: 'active' }).select('accountId');
+      const subs = await Subscription_Model.find({
+        status: { $in: ['active', 'trialing'] },
+      }).select('accountId');
       const accountIds = subs.map((s) => s.accountId.toString());
       return filterActiveAccounts(accountIds);
     }

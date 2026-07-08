@@ -140,7 +140,7 @@ const get_following = async (
 
       const recentSignalsCount = await Signal_Model.countDocuments({
         authorId: master.accountId,
-        status: 'closed',
+        status: 'completed',
         closedAt: { $gte: thirtyDaysAgo },
       });
 

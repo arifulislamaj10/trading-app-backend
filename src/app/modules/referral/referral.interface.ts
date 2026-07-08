@@ -5,6 +5,8 @@ export type TReferral = {
   inviteeId: Types.ObjectId;
   status: 'PENDING' | 'COMPLETED' | 'EXPIRED';
   rewardAmount: number;
+  inviteeSubscriptionTier?: 'free' | 'basic' | 'pro' | 'master';
+  completedAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 };

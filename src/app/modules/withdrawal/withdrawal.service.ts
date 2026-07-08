@@ -5,6 +5,54 @@ import { AppError } from "../../utils/app_error";
 import httpStatus from "http-status";
 import mongoose from "mongoose";
 import { TWithdrawalRequest, TWithdrawalStatus } from "./withdrawal.interface";
+import { notification_services } from "../notification/notification.service";
+
+export const WITHDRAWAL_STATUS_DEFINITIONS = {
+  PENDING: "User submitted a withdrawal request. Balance is not deducted yet.",
+  APPROVED:
+    "Admin approved the request. Amount is deducted from the user's wallet and a wallet transaction is created.",
+  COMPLETED:
+    "Admin confirmed the payout was sent externally (e.g. bank/PayPal transfer completed). No additional balance change.",
+  REJECTED: "Request was rejected. If previously approved, balance is not automatically refunded.",
+};
+
+const notifyWithdrawalStatus = async (
+  userId: string,
+  status: TWithdrawalStatus,
+  amount: number,
+  adminNote?: string
+) => {
+  const statusMessages: Record<TWithdrawalStatus, { title: string; message: string }> = {
+    PENDING: {
+      title: "Withdrawal Request Submitted",
+      message: `Your withdrawal request for $${amount.toFixed(2)} has been submitted and is pending review.`,
+    },
+    APPROVED: {
+      title: "Withdrawal Approved",
+      message: `Your withdrawal of $${amount.toFixed(2)} has been approved. The amount has been deducted from your wallet.`,
+    },
+    COMPLETED: {
+      title: "Withdrawal Completed",
+      message: `Your withdrawal of $${amount.toFixed(2)} has been marked complete. Funds should arrive per your payment method.`,
+    },
+    REJECTED: {
+      title: "Withdrawal Rejected",
+      message: `Your withdrawal request for $${amount.toFixed(2)} was rejected.${adminNote ? ` Reason: ${adminNote}` : ""}`,
+    },
+  };
+
+  const content = statusMessages[status];
+  if (!content) return;
+
+  await notification_services.create_notification({
+    accountId: userId,
+    type: "system_announcement",
+    title: content.title,
+    message: content.message,
+    link: "/wallet",
+    data: { withdrawalStatus: status, amount },
+  });
+};
 
 const create_withdrawal_request_in_db = async (userId: string, payload: Partial<TWithdrawalRequest>) => {
   const account = await Account_Model.findById(userId);
@@ -45,6 +93,8 @@ const create_withdrawal_request_in_db = async (userId: string, payload: Partial<
     ...payload,
     status: "PENDING",
   });
+
+  await notifyWithdrawalStatus(userId, "PENDING", amount);
 
   return result;
 };
@@ -94,6 +144,7 @@ const get_all_withdrawals_from_db = async (query: any) => {
     page,
     limit,
     totalPages: Math.ceil(total / limit),
+    statusDefinitions: WITHDRAWAL_STATUS_DEFINITIONS,
   };
 };
 
@@ -159,6 +210,14 @@ const update_withdrawal_status_in_db = async (id: string, payload: { status: TWi
 
     await session.commitTransaction();
     session.endSession();
+
+    await notifyWithdrawalStatus(
+      withdrawalRequest.userId.toString(),
+      payload.status,
+      withdrawalRequest.amount,
+      payload.adminNote
+    );
+
     return result;
   } catch (error) {
     await session.abortTransaction();
@@ -172,4 +231,5 @@ export const withdrawal_services = {
   get_my_withdrawals_from_db,
   get_all_withdrawals_from_db,
   update_withdrawal_status_in_db,
+  WITHDRAWAL_STATUS_DEFINITIONS,
 };

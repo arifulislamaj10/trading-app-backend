@@ -67,8 +67,8 @@ const copy_signal = async (userId: string, signalId: string) => {
     throw new AppError('Signal not found', httpStatus.NOT_FOUND);
   }
 
-  if (signal.status !== 'active' && signal.status !== 'closed') {
-    throw new AppError('Can only copy active or closed signals', httpStatus.BAD_REQUEST);
+  if (signal.status !== 'active' && signal.status !== 'completed') {
+    throw new AppError('Can only copy active or completed signals', httpStatus.BAD_REQUEST);
   }
 
   // Cannot copy your own signal
@@ -154,13 +154,15 @@ const log_trade = async (userId: string, data: TLogTrade) => {
     { new: true }
   );
 
-  // Notify the master about the trade result
+  // Notify the master (signal owner) about the trade result — owner only
+  const signal = await Signal_Model.findById(data.signalId).select('title symbol');
+  const signalLabel = signal?.title || signal?.symbol || 'your signal';
   const outcomeEmoji = data.outcome === 'win' ? '🟢' : data.outcome === 'loss' ? '🔴' : '🟡';
   await notification_services.create_notification({
     accountId: copiedTrade.masterId.toString(),
     type: 'trade_result_logged',
     title: `Trade Result ${outcomeEmoji}`,
-    message: `A copier logged a ${data.outcome} on your signal: ${data.signalId}`,
+    message: `A copier logged a ${data.outcome} on your signal: ${signalLabel}`,
     link: `/signals/${data.signalId}`,
     data: {
       signalId: data.signalId,

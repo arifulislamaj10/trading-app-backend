@@ -6,6 +6,7 @@ import httpStatus from "http-status";
 import { Types } from "mongoose";
 import crypto from "crypto";
 import { system_config_services } from "../system_config/system_config.service";
+import { configs } from "../../configs";
 
 /**
  * Generate a unique referral code
@@ -62,8 +63,55 @@ const get_referral_stats_from_db = async (userId: string) => {
     0,
   );
 
-  // In production, base URL should come from config
-  const baseUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+  const config = await system_config_services.get_config();
+  const subscriptionTiers =
+    await system_config_services.get_subscription_tiers_from_db();
+
+  // Personal conversion rate (completed / total referrals)
+  const conversionRate =
+    totalReferrals > 0
+      ? Math.round((activeReferrals / totalReferrals) * 10000) / 100
+      : 0;
+
+  // Personal monthly growth (completed this month vs last month)
+  const now = new Date();
+  const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  const [thisMonthCompleted, lastMonthCompleted, globalCompleted] =
+    await Promise.all([
+      Referral_Model.countDocuments({
+        referrerId: userId,
+        status: "COMPLETED",
+        completedAt: { $gte: startOfThisMonth },
+      }),
+      Referral_Model.countDocuments({
+        referrerId: userId,
+        status: "COMPLETED",
+        completedAt: { $gte: startOfLastMonth, $lt: startOfThisMonth },
+      }),
+      Referral_Model.countDocuments({ status: "COMPLETED" }),
+    ]);
+
+  const monthlyGrowthPercent =
+    lastMonthCompleted > 0
+      ? Math.round(
+          ((thisMonthCompleted - lastMonthCompleted) / lastMonthCompleted) *
+            10000,
+        ) / 100
+      : thisMonthCompleted > 0
+        ? 100
+        : 0;
+
+  // Platform-wide campaign progress (shared goal across all users)
+  const campaignGoal = config.referralCampaignGoal || 1000;
+  const progressPercent = Math.min(
+    100,
+    Math.round((globalCompleted / campaignGoal) * 10000) / 100,
+  );
+
+  // Base URL from config
+  const baseUrl = configs.jwt.front_end_url || process.env.FRONTEND_URL || "http://localhost:3000";
   const referralLink = `${baseUrl}/login?ref=${account!.referralCode}`;
 
   return {
@@ -75,12 +123,23 @@ const get_referral_stats_from_db = async (userId: string) => {
     totalRewards,
     walletBalance: account!.walletBalance,
     referralLink,
+    referralRewardsByTier: config.referralRewardsByTier,
+    subscriptionTiers,
+    conversionRate,
+    campaignPerformance: {
+      goal: campaignGoal,
+      completed: globalCompleted,
+      progressPercent,
+      thisMonthCompleted,
+      lastMonthCompleted,
+      monthlyGrowthPercent,
+    },
   };
 };
 
 const get_referral_history_from_db = async (userId: string, query: any) => {
   const page = Number(query.page) || 1;
-  const limit = Number(query.limit) || 10;
+  const limit = Math.min(Number(query.limit) || 20, 100);
   const skip = (page - 1) * limit;
 
   const referrals = await Referral_Model.find({ referrerId: userId })
@@ -96,6 +155,8 @@ const get_referral_history_from_db = async (userId: string, query: any) => {
     inviteeName: (ref.inviteeId as any)?.name || "Unknown User",
     status: ref.status,
     rewardAmount: ref.rewardAmount,
+    inviteeSubscriptionTier: ref.inviteeSubscriptionTier,
+    completedAt: ref.completedAt,
     createdAt: ref.createdAt,
   }));
 
@@ -118,12 +179,15 @@ const complete_referral_in_db = async (inviteeId: string) => {
   });
 
   if (referral) {
-    // Get reward amount from system config (in dollars)
-    const config = await system_config_services.get_config();
-    const REWARD_AMOUNT = config.referralRewardAmount;
+    const invitee = await Account_Model.findById(inviteeId);
+    const inviteeTier = invitee?.subscriptionTier || "free";
+
+    const REWARD_AMOUNT = await system_config_services.get_referral_reward_for_tier(
+      inviteeTier
+    );
 
     console.log(`[Referral] Completing referral for invitee: ${inviteeId}`);
-    console.log(`[Referral] Reward Amount: $${REWARD_AMOUNT}`);
+    console.log(`[Referral] Invitee tier: ${inviteeTier}, Reward Amount: $${REWARD_AMOUNT}`);
 
     const referrerAccount = await Account_Model.findById(referral.referrerId);
     console.log(`[Referral] Referrer Wallet Balance Before: $${referrerAccount?.walletBalance || 0}`);
@@ -131,26 +195,28 @@ const complete_referral_in_db = async (inviteeId: string) => {
     await Referral_Model.findByIdAndUpdate(referral._id, {
       status: "COMPLETED",
       rewardAmount: REWARD_AMOUNT,
+      inviteeSubscriptionTier: inviteeTier,
+      completedAt: new Date(),
     });
 
-    // Update referrer's wallet balance
-    const updatedAccount = await Account_Model.findByIdAndUpdate(
-      referral.referrerId,
-      { $inc: { walletBalance: REWARD_AMOUNT } },
-      { new: true }
-    );
-    
-    console.log(`[Referral] Referrer Wallet Balance After: $${updatedAccount?.walletBalance || 0}`);
+    if (REWARD_AMOUNT > 0) {
+      const updatedAccount = await Account_Model.findByIdAndUpdate(
+        referral.referrerId,
+        { $inc: { walletBalance: REWARD_AMOUNT } },
+        { new: true }
+      );
 
-    // Create wallet transaction
-    await WalletTransaction_Model.create({
-      userId: referral.referrerId,
-      amount: REWARD_AMOUNT,
-      type: "REWARD",
-      status: "COMPLETED",
-      referenceId: referral._id,
-      description: "Referral reward",
-    });
+      console.log(`[Referral] Referrer Wallet Balance After: $${updatedAccount?.walletBalance || 0}`);
+
+      await WalletTransaction_Model.create({
+        userId: referral.referrerId,
+        amount: REWARD_AMOUNT,
+        type: "REWARD",
+        status: "COMPLETED",
+        referenceId: referral._id,
+        description: `Referral reward (${inviteeTier} tier)`,
+      });
+    }
 
     return true;
   }

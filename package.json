@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "seed": "ts-node scripts/seed.ts",
     "seed:production": "NODE_ENV=production ts-node scripts/seed.ts",
-    "db:reset": "ts-node scripts/seed.ts --reset"
+    "db:reset": "ts-node scripts/seed.ts --reset",
+    "migrate:closed-to-completed": "ts-node scripts/migrate-closed-to-completed.ts"
   },
   "keywords": [
     "express",

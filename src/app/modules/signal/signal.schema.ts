@@ -1,8 +1,8 @@
 import { model, Schema, Types } from 'mongoose';
 
 export type SignalType = 'long' | 'short';
-export type SignalStatus = 'draft' | 'scheduled' | 'active' | 'closed' | 'expired' | 'canceled' | 'published' | 'completed' | 'cancelled' | 'won' | 'lost';
-export type AssetType = 'forex' | 'crypto' | 'stocks' | 'indices' | 'commodities';
+export type SignalStatus = 'draft' | 'scheduled' | 'active' | 'expired' | 'canceled' | 'published' | 'completed' | 'cancelled' | 'won' | 'lost';
+export type AssetType = 'forex' | 'crypto' | 'stocks' | 'indices' | 'commodities' | 'futures' | 'options' | 'etfs';
 export type Timeframe = 'm1' | 'm5' | 'm15' | 'm30' | 'h1' | 'h4' | 'd1' | 'w1' | 'mn1';
 export type PublishType = 'instant' | 'scheduled';
 
@@ -90,7 +90,7 @@ const signalSchema = new Schema<ISignal>(
     description: { type: String, default: '' },
     assetType: {
       type: String,
-      enum: ['forex', 'crypto', 'stocks', 'indices', 'commodities'],
+      enum: ['forex', 'crypto', 'stocks', 'indices', 'commodities', 'futures', 'options', 'etfs'],
       required: true,
     },
     symbol: { type: String, required: true },
@@ -114,7 +114,7 @@ const signalSchema = new Schema<ISignal>(
     // Signal state
     status: { 
       type: String, 
-      enum: ['draft', 'scheduled', 'active', 'closed', 'expired', 'canceled', 'published', 'completed', 'cancelled', 'won', 'lost'], 
+      enum: ['draft', 'scheduled', 'active', 'expired', 'canceled', 'published', 'completed', 'cancelled', 'won', 'lost'], 
       default: 'active' 
     },
     publishType: { 

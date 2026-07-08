@@ -5,7 +5,12 @@ import { AppError } from '../../utils/app_error';
 import { Account_Model } from '../auth/auth.schema';
 import { Subscription_Model } from '../subscription/subscription.schema';
 import { Payment_Model } from '../subscription/payment.schema';
-import { SubscriptionPlan_Model } from '../subscription/subscription.plans';
+import {
+  SubscriptionPlan_Model,
+  SUBSCRIPTION_TIER_ORDER,
+  normalizePlanId,
+  resolvePlanName,
+} from '../subscription/subscription.plans';
 import { stripeService } from '../subscription/stripe.service';
 import { Signal_Model } from '../signal/signal.schema';
 import { Master_Model } from '../master/master.schema';
@@ -13,12 +18,13 @@ import { Follow_Model } from '../follow/follow.schema';
 import { Notification_Model } from '../notification/notification.schema';
 import { Referral_Model } from '../referral/referral.schema';
 import { notification_services } from '../notification/notification.service';
+import { system_config_services } from '../system_config/system_config.service';
 
 // Platform analytics (Admin only)
 const get_platform_analytics = catchAsync(async (req, res) => {
   const totalUsers = await Account_Model.countDocuments({ role: 'USER' });
   const totalMasters = await Account_Model.countDocuments({ role: 'MASTER' });
-  const activeSubscriptions = await Subscription_Model.countDocuments({ status: 'active' });
+  const activeSubscriptionCount = await Subscription_Model.countDocuments({ status: 'active' });
   const totalSignals = await Signal_Model.countDocuments();
   const activeSignals = await Signal_Model.countDocuments({ status: 'active' });
   const totalFollows = await Follow_Model.countDocuments();
@@ -42,12 +48,102 @@ const get_platform_analytics = catchAsync(async (req, res) => {
     .limit(10)
     .populate('accountId', 'name email');
 
-  // Subscription distribution
-  const subscriptionByTier = await Subscription_Model.aggregate([
-    { $match: { status: 'active' } },
-    { $group: { _id: '$planId', count: { $sum: 1 } } },
-    { $sort: { count: -1 } },
-  ]);
+  // Subscription distribution from real plans (Monthly, Yearly) + free users
+  const subscriptionTiers = await system_config_services.get_subscription_tiers_from_db();
+  const allActivePlans = await SubscriptionPlan_Model.find({ isActive: true }).sort({
+    price: 1,
+    name: 1,
+  });
+
+  const knownPlanIds = new Set(allActivePlans.map((plan) => plan.planId));
+  const planNameMap = allActivePlans.reduce(
+    (acc, plan) => {
+      acc[plan.planId] = plan.name;
+      return acc;
+    },
+    { free: 'Free' } as Record<string, string>,
+  );
+  const planTierMap = allActivePlans.reduce(
+    (acc, plan) => {
+      acc[plan.planId] = (plan.tier || 'pro').toLowerCase();
+      return acc;
+    },
+    { free: 'free' } as Record<string, string>,
+  );
+
+  const activeSubscriptionRecords = await Subscription_Model.find({
+    status: { $in: ['active', 'trialing'] },
+  }).select('accountId planId');
+
+  const planCountMap: Record<string, number> = {};
+  const paidAccountIds = new Set<string>();
+
+  for (const subscription of activeSubscriptionRecords) {
+    const normalizedPlanId = normalizePlanId(subscription.planId, knownPlanIds);
+    planCountMap[normalizedPlanId] = (planCountMap[normalizedPlanId] || 0) + 1;
+    paidAccountIds.add(subscription.accountId.toString());
+  }
+
+  const freeCount = await Account_Model.countDocuments({
+    role: 'USER',
+    isDeleted: { $ne: true },
+    accountStatus: { $ne: 'SUSPENDED' },
+    _id: { $nin: [...paidAccountIds] },
+  });
+  if (freeCount > 0) {
+    planCountMap.free = freeCount;
+  }
+
+  const subscriptionByPlan = [
+    ...allActivePlans.map((plan) => ({
+      planId: plan.planId,
+      planName: plan.name,
+      tier: plan.tier,
+      count: planCountMap[plan.planId] || 0,
+    })),
+    ...(freeCount > 0
+      ? [
+          {
+            planId: 'free',
+            planName: 'Free',
+            tier: 'free' as const,
+            count: freeCount,
+          },
+        ]
+      : []),
+  ]
+    .filter((plan) => plan.count > 0)
+    .sort((a, b) => b.count - a.count);
+
+  const tierCountMap: Record<string, number> = {};
+  for (const [planId, count] of Object.entries(planCountMap)) {
+    const tier = planTierMap[planId] || 'free';
+    tierCountMap[tier] = (tierCountMap[tier] || 0) + count;
+  }
+
+  const tierLabelMap = subscriptionTiers.reduce(
+    (acc, tierInfo) => {
+      acc[tierInfo.tier] = tierInfo.label;
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
+
+  const subscriptionByTier = SUBSCRIPTION_TIER_ORDER.filter((tier) => tierCountMap[tier])
+    .map((tier) => ({
+      tier,
+      label: tierLabelMap[tier] || tier.charAt(0).toUpperCase() + tier.slice(1),
+      count: tierCountMap[tier],
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  const planNames = [
+    ...(freeCount > 0 ? ['Free'] : []),
+    ...allActivePlans.map((plan) => plan.name),
+  ].join(', ');
+  const subscriptionDistributionDescription = planNames
+    ? `Breakdown of users by subscription plan (${planNames}).`
+    : 'Breakdown of users by subscription plan.';
 
   manageResponse(res, {
     success: true,
@@ -59,12 +155,21 @@ const get_platform_analytics = catchAsync(async (req, res) => {
         total: totalMasters,
       },
       subscriptions: {
-        active: activeSubscriptions,
+        active: activeSubscriptionCount,
         byTier: subscriptionByTier,
+        byPlan: subscriptionByPlan,
+        description: subscriptionDistributionDescription,
       },
       signals: {
         total: totalSignals,
         active: activeSignals,
+        statusDefinitions: {
+          active: 'Live signal visible to users.',
+          scheduled: 'Waiting for scheduled publish time.',
+          completed: 'Trade finished with PnL result logged.',
+          canceled: 'Rejected or canceled signal.',
+          expired: 'Soft-deleted via delete action.',
+        },
       },
       follows: { total: totalFollows },
       referrals: {
@@ -83,11 +188,55 @@ const get_platform_analytics = catchAsync(async (req, res) => {
 
 // Global Referral Stats (Admin)
 const get_referral_stats = catchAsync(async (req, res) => {
+  const { system_config_services } = await import('../system_config/system_config.service');
+  const config = await system_config_services.get_config();
+
   const totalReferrals = await Referral_Model.countDocuments();
   const activeReferrals = await Referral_Model.countDocuments({ status: 'COMPLETED' });
-  
+  const pendingReferrals = await Referral_Model.countDocuments({ status: 'PENDING' });
+
   const totalRewardsDistributed = await Referral_Model.aggregate([
     { $group: { _id: null, total: { $sum: '$rewardAmount' } } },
+  ]);
+
+  const now = new Date();
+  const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  const [thisMonthCompleted, lastMonthCompleted] = await Promise.all([
+    Referral_Model.countDocuments({
+      status: 'COMPLETED',
+      completedAt: { $gte: startOfThisMonth },
+    }),
+    Referral_Model.countDocuments({
+      status: 'COMPLETED',
+      completedAt: { $gte: startOfLastMonth, $lt: startOfThisMonth },
+    }),
+  ]);
+
+  const monthlyGrowthPercent =
+    lastMonthCompleted > 0
+      ? Math.round(((thisMonthCompleted - lastMonthCompleted) / lastMonthCompleted) * 10000) / 100
+      : thisMonthCompleted > 0
+        ? 100
+        : 0;
+
+  const campaignGoal = config.referralCampaignGoal || 1000;
+  const campaignProgress = Math.min(
+    100,
+    Math.round((activeReferrals / campaignGoal) * 10000) / 100
+  );
+
+  const rewardsByTier = await Referral_Model.aggregate([
+    { $match: { status: 'COMPLETED', inviteeSubscriptionTier: { $exists: true } } },
+    {
+      $group: {
+        _id: '$inviteeSubscriptionTier',
+        count: { $sum: 1 },
+        totalRewards: { $sum: '$rewardAmount' },
+      },
+    },
+    { $sort: { count: -1 } },
   ]);
 
   // Get Top Referrers
@@ -126,8 +275,31 @@ const get_referral_stats = catchAsync(async (req, res) => {
     data: {
       totalReferrals,
       activeReferrals,
+      pendingReferrals,
       totalRewardsDistributed: totalRewardsDistributed[0]?.total || 0,
-      topReferrers
+      conversionRate:
+        totalReferrals > 0
+          ? Math.round((activeReferrals / totalReferrals) * 10000) / 100
+          : 0,
+      topReferrers,
+      campaignPerformance: {
+        goal: campaignGoal,
+        completed: activeReferrals,
+        progressPercent: campaignProgress,
+        thisMonthCompleted,
+        lastMonthCompleted,
+        monthlyGrowthPercent,
+      },
+      rewardsByTier,
+      referralRewardsByTier: config.referralRewardsByTier,
+      statusDefinitions: {
+        PENDING:
+          'Created when an invitee registers using a referral code. Awaiting invitee subscription activation.',
+        COMPLETED:
+          'Set when the invitee activates a subscription. Reward is credited to the referrer wallet based on invitee tier.',
+        EXPIRED:
+          'Referral expired without conversion (reserved for future use).',
+      },
     },
   });
 });
@@ -172,6 +344,8 @@ const get_all_referrals = catchAsync(async (req, res) => {
     inviteeName: (ref.inviteeId as any)?.name || 'Unknown',
     status: ref.status,
     rewardAmount: ref.rewardAmount,
+    inviteeSubscriptionTier: ref.inviteeSubscriptionTier,
+    completedAt: ref.completedAt,
     createdAt: ref.createdAt,
   }));
 
@@ -196,6 +370,7 @@ const broadcast_announcement = catchAsync(async (req, res) => {
     eventAt,
     eventTimezone,
     scheduledSendAt,
+    scheduledSendTimezone,
   } = req.body;
 
   const legacyTargetRole = targetRole ?? role;
@@ -213,21 +388,54 @@ const broadcast_announcement = catchAsync(async (req, res) => {
       '../notification/scheduled_announcement.service'
     );
 
+    const scheduledAt = new Date(scheduledSendAt);
+    const deliveryTimezone = scheduledSendTimezone || eventTimezone || 'UTC';
+
     const result = await scheduled_announcement_services.schedule_announcement({
       title,
       message,
       link,
       audience: resolvedAudience,
       eventTime,
-      scheduledSendAt: new Date(scheduledSendAt),
+      scheduledSendAt: scheduledAt,
       createdBy: req.user!.userId,
+    });
+
+    const scheduledSendAtIso =
+      result.scheduledSendAt instanceof Date
+        ? result.scheduledSendAt.toISOString()
+        : String(result.scheduledSendAt);
+
+    // Confirm schedule in admin notification feed
+    await notification_services.create_notification({
+      accountId: req.user!.userId,
+      type: 'system_announcement',
+      title: `Scheduled: ${title}`,
+      message,
+      link: link || '',
+      data: {
+        scheduledId: result.scheduledId,
+        eventAt: scheduledSendAtIso,
+        eventTimezone: deliveryTimezone,
+        audience: resolvedAudience,
+        ...(eventTime
+          ? {
+              announcedEventAt: eventTime.eventAt,
+              announcedEventTimezone: eventTime.eventTimezone,
+            }
+          : {}),
+      },
     });
 
     manageResponse(res, {
       success: true,
       statusCode: httpStatus.OK,
       message: 'Announcement scheduled successfully',
-      data: { ...result, scheduled: true },
+      data: {
+        scheduledId: result.scheduledId,
+        scheduledSendAt: scheduledSendAtIso,
+        scheduled: true,
+      },
     });
     return;
   }
@@ -332,7 +540,16 @@ const get_all_payments = catchAsync(async (req, res) => {
 // Update Subscription Plan (Admin)
 const update_subscription_plan = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const { name, price, durationInDays, features, isActive } = req.body;
+  const {
+    name,
+    price,
+    durationInDays,
+    trialDays,
+    affiliateBonusPercent,
+    description,
+    features,
+    isActive,
+  } = req.body;
 
   // Find existing plan first to check current price and stripeProductId
   const existingPlan = await SubscriptionPlan_Model.findById(id);
@@ -349,6 +566,11 @@ const update_subscription_plan = catchAsync(async (req, res) => {
   const updateData: Record<string, any> = {};
   if (name !== undefined) updateData.name = name;
   if (durationInDays !== undefined) updateData.durationInDays = durationInDays;
+  if (trialDays !== undefined) updateData.trialDays = trialDays;
+  if (affiliateBonusPercent !== undefined) {
+    updateData.affiliateBonusPercent = affiliateBonusPercent;
+  }
+  if (description !== undefined) updateData.description = description;
   if (features !== undefined) updateData.features = features;
   if (isActive !== undefined) updateData.isActive = isActive;
 
@@ -411,18 +633,21 @@ const get_all_subscribers = catchAsync(async (req, res) => {
 
   // Get plan names for all planIds in the current page
   const planIds = [...new Set(subscribers.map((s) => s.planId))];
-  const plans = await SubscriptionPlan_Model.find({ planId: { $in: planIds } });
-  
-  const planMap = plans.reduce((acc, plan) => {
-    acc[plan.planId] = plan.name;
-    return acc;
-  }, {} as Record<string, string>);
+  const plans = await SubscriptionPlan_Model.find({ isActive: true });
+  const planNameMap = plans.reduce(
+    (acc, plan) => {
+      acc[plan.planId] = plan.name;
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
+  const knownPlanIds = new Set(plans.map((plan) => plan.planId));
 
   const data = subscribers.map((sub: any) => ({
     userId: sub.accountId?._id,
     userInfo: sub.accountId,
     planId: sub.planId,
-    planName: planMap[sub.planId] || sub.planId,
+    planName: resolvePlanName(sub.planId, planNameMap, knownPlanIds),
     startDate: sub.currentPeriodStart,
     endDate: sub.currentPeriodEnd,
     status: sub.status,
