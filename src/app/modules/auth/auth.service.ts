@@ -215,7 +215,9 @@ const login_user_from_db = async (payload: TLoginPayload): Promise<LoginReturnTy
     // Check if 2FA is enabled
     if (account.twoFactorEnabled) {
       if (!payload.twoFactorCode) {
-        throw new AppError(AUTH_ERRORS.TWO_FA_REQUIRED, httpStatus.UNAUTHORIZED);
+        throw new AppError(AUTH_ERRORS.TWO_FA_REQUIRED, httpStatus.UNAUTHORIZED, {
+          requiresTwoFactor: true,
+        });
       }
       
       const isTOTPValid = verifyTOTP(payload.twoFactorCode, account.twoFactorSecret!);
@@ -273,6 +275,9 @@ const get_my_profile_from_db = async (email: string): Promise<Omit<TAccount, 'pa
   const profile = account.toObject();
   return {
     ...profile,
+    status: account.accountStatus,
+    has2FA: account.twoFactorEnabled ?? false,
+    isEmailVerified: account.isVerified ?? false,
     roleLabel: account.role ? roleLabels[account.role] || account.role : 'User',
     isMasterTrader: account.role === 'MASTER',
   } as unknown as Omit<TAccount, 'password'>;
@@ -281,7 +286,7 @@ const get_my_profile_from_db = async (email: string): Promise<Omit<TAccount, 'pa
 /**
  * Refresh access token with token rotation
  */
-const refresh_token_from_db = async (token: string): Promise<string> => {
+const refresh_token_from_db = async (token: string): Promise<{ accessToken: string; refreshToken: string }> => {
   let decodedData: JwtPayloadType;
   
   try {
@@ -300,17 +305,21 @@ const refresh_token_from_db = async (token: string): Promise<string> => {
     throw new AppError(AUTH_ERRORS.ACCOUNT_NOT_FOUND, httpStatus.NOT_FOUND);
   }
 
-  // Blacklist old refresh token (token rotation)
   await jwtHelpers.blacklistToken(token, TOKEN_EXPIRY.REFRESH);
 
-  // Generate new access token with userId, email, and role
   const accessToken = jwtHelpers.generateToken(
     { userId: userData._id.toString(), email: userData.email, role: userData.role || 'USER' },
     configs.jwt.access_token as Secret,
     TOKEN_EXPIRY.ACCESS
   );
 
-  return accessToken;
+  const refreshToken = jwtHelpers.generateToken(
+    { userId: userData._id.toString(), email: userData.email, role: userData.role || 'USER' },
+    configs.jwt.refresh_token as Secret,
+    TOKEN_EXPIRY.REFRESH
+  );
+
+  return { accessToken, refreshToken };
 };
 
 /**
@@ -673,13 +682,15 @@ const use_backup_code_from_db = async (
  */
 const logout_user_from_db = async (
   accessToken: string,
-  refreshToken: string,
+  refreshToken?: string,
 ): Promise<string> => {
-  // Blacklist both tokens
-  await Promise.all([
-    jwtHelpers.blacklistToken(accessToken, TOKEN_EXPIRY.ACCESS),
-    jwtHelpers.blacklistToken(refreshToken, TOKEN_EXPIRY.REFRESH),
-  ]);
+  const blacklistTasks = [jwtHelpers.blacklistToken(accessToken, TOKEN_EXPIRY.ACCESS)];
+
+  if (refreshToken) {
+    blacklistTasks.push(jwtHelpers.blacklistToken(refreshToken, TOKEN_EXPIRY.REFRESH));
+  }
+
+  await Promise.all(blacklistTasks);
 
   return AUTH_ERRORS.LOGOUT_SUCCESS;
 };

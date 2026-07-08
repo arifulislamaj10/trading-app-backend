@@ -18,6 +18,34 @@ const tierLevels: Record<SubscriptionTier, number> = {
 };
 
 /**
+ * Increment signal usage for subscribers (skips admin/master).
+ */
+export const incrementSignalUsageForAccount = async (accountId: string) => {
+  const account = await Account_Model.findById(accountId);
+  if (!account || account.role === 'ADMIN' || account.role === 'MASTER') {
+    return;
+  }
+
+  const subscription = await Subscription_Model.findOne({ accountId });
+  if (!subscription) {
+    return;
+  }
+
+  const plan = await SubscriptionPlan_Model.findOne({ planId: subscription.planId });
+  if (plan && plan.signalLimit !== -1 && subscription.signalsUsed >= plan.signalLimit) {
+    throw new AppError(
+      'Signal limit reached. Upgrade your plan for unlimited access.',
+      httpStatus.FORBIDDEN
+    );
+  }
+
+  await Subscription_Model.findOneAndUpdate(
+    { accountId },
+    { $inc: { signalsUsed: 1 } }
+  );
+};
+
+/**
  * Middleware to require an active subscription to view signals.
  * Only subscribed users with active/trialing status can access premium signals.
  * @param requiredTier - Minimum tier level required (defaults to 'basic' for premium signals)

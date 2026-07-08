@@ -66,12 +66,19 @@ const globalErrorHandler: ErrorRequestHandler = (err, req, res, next) => {
         ]
     }
 
-    res.status(statusCode).json({
+    const responseBody: Record<string, unknown> = {
         success: false,
         message,
         errorSources,
-        stack: configs.env === 'development' ? err?.stack : null
-    })
+        stack: configs.env === 'development' ? err?.stack : null,
+    };
+
+    if (err instanceof AppError && err.details) {
+        responseBody.data = err.details;
+        Object.assign(responseBody, err.details);
+    }
+
+    res.status(statusCode).json(responseBody);
 }
 
 export default globalErrorHandler

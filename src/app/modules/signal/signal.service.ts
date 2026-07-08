@@ -18,6 +18,8 @@ import {
   REJECTABLE_WORKFLOW_STATUSES,
   RESUBMIT_AI_WORKFLOW_STATUSES,
 } from './signal.workflow.constants';
+import { incrementSignalUsageForAccount } from '../../middlewares/subscription_guard';
+import { SignalEngagement_Model } from './signal_engagement.schema';
 import { createSignalSchema } from './signal.validation';
 
 interface TCreateSignal {
@@ -542,6 +544,10 @@ const update_signal = async (
   const isClosing = finalStatus === 'completed' && (finalResultPnl !== undefined && finalResultPnl !== null);
 
   if (isClosing) {
+    if (signal.status === 'completed') {
+      throw new AppError('Signal is already closed', httpStatus.BAD_REQUEST);
+    }
+
     const master = await Master_Model.findOne({ accountId: authorAccountId });
 
     const updates: Record<string, unknown> = {
@@ -957,6 +963,8 @@ const get_signal_by_id = async (
           httpStatus.FORBIDDEN
         );
       }
+
+      await incrementSignalUsageForAccount(viewerAccountId);
     }
   } else if (signal.isPremium && !viewerAccountId) {
     throw new AppError(
@@ -1025,8 +1033,20 @@ const like_signal = async (accountId: string, signalId: string) => {
     throw new AppError('Signal not found', httpStatus.NOT_FOUND);
   }
 
-  await Signal_Model.findByIdAndUpdate(signalId, { $inc: { likeCount: 1 } });
-  contribution_services.track_contribution(accountId, 'like_signal', signalId);
+  try {
+    await SignalEngagement_Model.create({
+      accountId: new Types.ObjectId(accountId),
+      signalId: new Types.ObjectId(signalId),
+      type: 'like',
+    });
+    await Signal_Model.findByIdAndUpdate(signalId, { $inc: { likeCount: 1 } });
+    contribution_services.track_contribution(accountId, 'like_signal', signalId);
+  } catch (error: any) {
+    if (error?.code === 11000) {
+      return { message: 'Signal already liked' };
+    }
+    throw error;
+  }
 
   return { message: 'Signal liked successfully' };
 };
@@ -1044,7 +1064,16 @@ const unlike_signal = async (accountId: string, signalId: string) => {
     throw new AppError('Signal not found', httpStatus.NOT_FOUND);
   }
 
-  await Signal_Model.findByIdAndUpdate(signalId, { $inc: { likeCount: -1 } });
+  const deleted = await SignalEngagement_Model.findOneAndDelete({
+    accountId: new Types.ObjectId(accountId),
+    signalId: new Types.ObjectId(signalId),
+    type: 'like',
+  });
+
+  if (deleted) {
+    await Signal_Model.findByIdAndUpdate(signalId, { $inc: { likeCount: -1 } });
+  }
+
   return { message: 'Signal unliked successfully' };
 };
 
@@ -1061,8 +1090,20 @@ const bookmark_signal = async (accountId: string, signalId: string) => {
     throw new AppError('Signal not found', httpStatus.NOT_FOUND);
   }
 
-  await Signal_Model.findByIdAndUpdate(signalId, { $inc: { bookmarkCount: 1 } });
-  contribution_services.track_contribution(accountId, 'bookmark_signal', signalId);
+  try {
+    await SignalEngagement_Model.create({
+      accountId: new Types.ObjectId(accountId),
+      signalId: new Types.ObjectId(signalId),
+      type: 'bookmark',
+    });
+    await Signal_Model.findByIdAndUpdate(signalId, { $inc: { bookmarkCount: 1 } });
+    contribution_services.track_contribution(accountId, 'bookmark_signal', signalId);
+  } catch (error: any) {
+    if (error?.code === 11000) {
+      return { message: 'Signal already bookmarked' };
+    }
+    throw error;
+  }
 
   return { message: 'Signal bookmarked successfully' };
 };
@@ -1080,7 +1121,16 @@ const unbookmark_signal = async (accountId: string, signalId: string) => {
     throw new AppError('Signal not found', httpStatus.NOT_FOUND);
   }
 
-  await Signal_Model.findByIdAndUpdate(signalId, { $inc: { bookmarkCount: -1 } });
+  const deleted = await SignalEngagement_Model.findOneAndDelete({
+    accountId: new Types.ObjectId(accountId),
+    signalId: new Types.ObjectId(signalId),
+    type: 'bookmark',
+  });
+
+  if (deleted) {
+    await Signal_Model.findByIdAndUpdate(signalId, { $inc: { bookmarkCount: -1 } });
+  }
+
   return { message: 'Bookmark removed successfully' };
 };
 
@@ -1121,23 +1171,36 @@ const publish_scheduled_signals = async () => {
 
   for (const signal of signals) {
     try {
-      await Signal_Model.findByIdAndUpdate(signal._id, {
-        status: 'active',
-        publishedAt: now,
-      });
+      const updated = await Signal_Model.findOneAndUpdate(
+        {
+          _id: signal._id,
+          status: 'scheduled',
+          publishType: 'scheduled',
+          scheduledAt: { $lte: now },
+        },
+        {
+          status: 'active',
+          publishedAt: now,
+        },
+        { new: true }
+      );
+
+      if (!updated) {
+        continue;
+      }
 
       await Master_Model.findOneAndUpdate(
-        { accountId: signal.authorId },
+        { accountId: updated.authorId },
         { $inc: { totalSignals: 1 } }
       );
 
       await contribution_services.track_contribution(
-        signal.authorId.toString(),
+        updated.authorId.toString(),
         'create_signal',
-        signal._id.toString()
+        updated._id.toString()
       );
 
-      await notifyFollowersOfNewSignal(signal._id.toString(), signal.authorId.toString());
+      await notifyFollowersOfNewSignal(updated._id.toString(), updated.authorId.toString());
       
       published++;
       notified++;

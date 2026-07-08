@@ -56,20 +56,29 @@ const get_my_profile = catchAsync(async (req: Request, res: Response) => {
 });
 
 const refresh_token = catchAsync(async (req: Request, res: Response) => {
-  const { refreshToken } = req.cookies;
+  const refreshToken = req.cookies.refreshToken || req.body?.refreshToken;
   
   if (!refreshToken) {
     throw new AppError("Refresh token required", httpStatus.UNAUTHORIZED);
   }
   
   const result = await auth_services.refresh_token_from_db(refreshToken);
+
+  res.cookie("refreshToken", result.refreshToken, {
+    secure: configs.env === "production",
+    httpOnly: true,
+    sameSite: "strict",
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
   
   manageResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
     message: "Token refreshed successfully",
     data: {
-      accessToken: result,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
     },
   });
 });
@@ -143,10 +152,10 @@ const resend_verification_email = catchAsync(
 
 const logout_user = catchAsync(async (req: Request, res: Response) => {
   const accessToken = req.headers.authorization?.split(" ")[1];
-  const { refreshToken } = req.cookies;
+  const refreshToken = req.cookies.refreshToken || req.body?.refreshToken;
   
-  if (!accessToken || !refreshToken) {
-    throw new AppError("Tokens required for logout", httpStatus.BAD_REQUEST);
+  if (!accessToken) {
+    throw new AppError("Access token required for logout", httpStatus.BAD_REQUEST);
   }
 
   const result = await auth_services.logout_user_from_db(

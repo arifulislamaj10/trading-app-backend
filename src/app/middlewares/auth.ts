@@ -22,7 +22,7 @@ const auth = (...roles: UserRoleType[]) => {
             );
 
             if (!roles.length || !roles.includes(verifiedUser.role as UserRoleType)) {
-                throw new AppError('You are not authorized to access this resource', 401);
+                throw new AppError('You are not authorized to access this resource', 403);
             }
 
             // check user

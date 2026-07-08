@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import { Account_Model } from '../modules/auth/auth.schema';
+import { configs } from "../configs";
 import { Subscription_Model } from '../modules/subscription/subscription.schema';
 import { notification_services } from '../modules/notification/notification.service';
 import sendMail from './mail_sender';
@@ -34,7 +35,7 @@ const sendExpiryNotification = async (
       }
     </p>
     <p style="margin-top: 16px;">
-      <a href="${process.env.FRONTEND_URL || 'https://yourapp.com'}/subscription/renew"
+      <a href="${configs.jwt.front_end_url || process.env.FRONT_END_URL || 'http://localhost:3000'}/subscription/renew"
          style="display: inline-block; background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
         Renew Subscription
       </a>
@@ -97,10 +98,13 @@ const checkExpiringSubscriptions = async () => {
 
     for (const sub of expiringSubscriptions) {
       try {
-        // Check if notification already sent for this period
-        const notificationKey = `expiryNotified_${days}_${sub.currentPeriodEnd?.getTime()}`;
-        if ((sub as any)[notificationKey]) {
-          continue; // Already notified
+        // Check if notification already sent for this billing period
+        const periodEndMs = sub.currentPeriodEnd?.getTime();
+        const alreadySent = (sub.expiryNotificationsSent || []).some(
+          (entry) => entry.daysBefore === days && entry.periodEnd?.getTime() === periodEndMs
+        );
+        if (alreadySent) {
+          continue;
         }
 
         // Get account details
@@ -121,7 +125,13 @@ const checkExpiringSubscriptions = async () => {
 
         // Mark as notified
         await Subscription_Model.findByIdAndUpdate(sub._id, {
-          $set: { [notificationKey]: true },
+          $push: {
+            expiryNotificationsSent: {
+              daysBefore: days,
+              periodEnd: sub.currentPeriodEnd,
+              sentAt: new Date(),
+            },
+          },
         });
 
         notificationCount++;

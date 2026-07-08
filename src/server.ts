@@ -10,6 +10,7 @@ import { scheduleExpiryNotifications } from "./app/utils/subscription_notificati
 import { scheduleSignalPublish } from "./app/utils/signal_publish_scheduler";
 import { scheduleBadgeEvaluation } from "./app/utils/badge_evaluation_scheduler";
 import { scheduleAnnouncementDelivery } from "./app/utils/announcement_scheduler";
+import { scheduleReferralExpiry } from "./app/utils/referral_expiry_scheduler";
 import { logUploadStorageConfig } from "./app/utils/s3";
 
 async function main() {
@@ -33,6 +34,7 @@ async function main() {
     scheduleSignalPublish();
     scheduleBadgeEvaluation();
     scheduleAnnouncementDelivery();
+    scheduleReferralExpiry();
 
     logUploadStorageConfig();
 

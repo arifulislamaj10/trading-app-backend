@@ -3,7 +3,7 @@ import { Account_Model } from "../auth/auth.schema";
 import { WalletTransaction_Model } from "../wallet_transaction/wallet_transaction.schema";
 import { AppError } from "../../utils/app_error";
 import httpStatus from "http-status";
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import crypto from "crypto";
 import { system_config_services } from "../system_config/system_config.service";
 import { configs } from "../../configs";
@@ -173,55 +173,64 @@ const get_referral_history_from_db = async (userId: string, query: any) => {
  * Mark a referral as completed when the invitee subscribes
  */
 const complete_referral_in_db = async (inviteeId: string) => {
-  const referral = await Referral_Model.findOne({
-    inviteeId,
-    status: "PENDING",
-  });
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  if (referral) {
-    const invitee = await Account_Model.findById(inviteeId);
+  try {
+    const referral = await Referral_Model.findOne({
+      inviteeId,
+      status: "PENDING",
+    }).session(session);
+
+    if (!referral) {
+      await session.abortTransaction();
+      session.endSession();
+      return false;
+    }
+
+    const invitee = await Account_Model.findById(inviteeId).session(session);
     const inviteeTier = invitee?.subscriptionTier || "free";
 
     const REWARD_AMOUNT = await system_config_services.get_referral_reward_for_tier(
       inviteeTier
     );
 
-    console.log(`[Referral] Completing referral for invitee: ${inviteeId}`);
-    console.log(`[Referral] Invitee tier: ${inviteeTier}, Reward Amount: $${REWARD_AMOUNT}`);
-
-    const referrerAccount = await Account_Model.findById(referral.referrerId);
-    console.log(`[Referral] Referrer Wallet Balance Before: $${referrerAccount?.walletBalance || 0}`);
-
-    await Referral_Model.findByIdAndUpdate(referral._id, {
-      status: "COMPLETED",
-      rewardAmount: REWARD_AMOUNT,
-      inviteeSubscriptionTier: inviteeTier,
-      completedAt: new Date(),
-    });
+    await Referral_Model.findByIdAndUpdate(
+      referral._id,
+      {
+        status: "COMPLETED",
+        rewardAmount: REWARD_AMOUNT,
+        inviteeSubscriptionTier: inviteeTier,
+        completedAt: new Date(),
+      },
+      { session }
+    );
 
     if (REWARD_AMOUNT > 0) {
-      const updatedAccount = await Account_Model.findByIdAndUpdate(
+      await Account_Model.findByIdAndUpdate(
         referral.referrerId,
         { $inc: { walletBalance: REWARD_AMOUNT } },
-        { new: true }
+        { session }
       );
 
-      console.log(`[Referral] Referrer Wallet Balance After: $${updatedAccount?.walletBalance || 0}`);
-
-      await WalletTransaction_Model.create({
+      await WalletTransaction_Model.create([{
         userId: referral.referrerId,
         amount: REWARD_AMOUNT,
         type: "REWARD",
         status: "COMPLETED",
         referenceId: referral._id,
         description: `Referral reward (${inviteeTier} tier)`,
-      });
+      }], { session });
     }
 
+    await session.commitTransaction();
+    session.endSession();
     return true;
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
   }
-
-  return false;
 };
 
 export const referral_services = {

@@ -14,7 +14,7 @@ const walletTransactionSchema = new Schema<TWalletTransaction>(
     },
     type: {
       type: String,
-      enum: ["REWARD", "WITHDRAWAL"],
+      enum: ["REWARD", "WITHDRAWAL", "REFUND"],
       required: true,
     },
     status: {

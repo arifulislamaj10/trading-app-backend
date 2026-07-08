@@ -13,7 +13,8 @@ export const WITHDRAWAL_STATUS_DEFINITIONS = {
     "Admin approved the request. Amount is deducted from the user's wallet and a wallet transaction is created.",
   COMPLETED:
     "Admin confirmed the payout was sent externally (e.g. bank/PayPal transfer completed). No additional balance change.",
-  REJECTED: "Request was rejected. If previously approved, balance is not automatically refunded.",
+  REJECTED:
+    "Request was rejected. If previously approved, the deducted amount is refunded to the user's wallet.",
 };
 
 const notifyWithdrawalStatus = async (
@@ -162,16 +163,14 @@ const update_withdrawal_status_in_db = async (id: string, payload: { status: TWi
       throw new AppError(`Request already ${withdrawalRequest.status.toLowerCase()}`, httpStatus.BAD_REQUEST);
     }
 
-    // Logic: 
-    // If status is being changed to APPROVED, we deduct the balance.
-    // If it was already APPROVED and changing to COMPLETED, we just update status.
-    // If it's being REJECTED, and it was APPROVED, we should refund? 
-    // Usually, it's better to deduct on REQUEST or APPROVAL.
-    
-    // According to instructions: 
-    // On approval -> deduct the amount from wallet
-    
-    if (payload.status === "APPROVED" && withdrawalRequest.status === "PENDING") {
+    const shouldDeduct =
+      withdrawalRequest.status === "PENDING" &&
+      (payload.status === "APPROVED" || payload.status === "COMPLETED");
+
+    const shouldRefund =
+      withdrawalRequest.status === "APPROVED" && payload.status === "REJECTED";
+
+    if (shouldDeduct) {
       const account = await Account_Model.findById(withdrawalRequest.userId).session(session);
       if (!account) {
         throw new AppError("Account not found", httpStatus.NOT_FOUND);
@@ -181,14 +180,12 @@ const update_withdrawal_status_in_db = async (id: string, payload: { status: TWi
         throw new AppError("Insufficient balance to approve this request", httpStatus.BAD_REQUEST);
       }
 
-      // Deduct balance
       await Account_Model.findByIdAndUpdate(
         withdrawalRequest.userId,
         { $inc: { walletBalance: -withdrawalRequest.amount } },
         { session }
       );
 
-      // Create wallet transaction
       await WalletTransaction_Model.create([{
         userId: withdrawalRequest.userId,
         amount: withdrawalRequest.amount,
@@ -199,8 +196,22 @@ const update_withdrawal_status_in_db = async (id: string, payload: { status: TWi
       }], { session });
     }
 
-    // If status is being changed to REJECTED from APPROVED (rare but possible), we should refund.
-    // But let's keep it simple as per instructions.
+    if (shouldRefund) {
+      await Account_Model.findByIdAndUpdate(
+        withdrawalRequest.userId,
+        { $inc: { walletBalance: withdrawalRequest.amount } },
+        { session }
+      );
+
+      await WalletTransaction_Model.create([{
+        userId: withdrawalRequest.userId,
+        amount: withdrawalRequest.amount,
+        type: "REFUND",
+        status: "COMPLETED",
+        referenceId: withdrawalRequest._id,
+        description: "Withdrawal rejection refund",
+      }], { session });
+    }
     
     const result = await Withdrawal_Model.findByIdAndUpdate(
       id,

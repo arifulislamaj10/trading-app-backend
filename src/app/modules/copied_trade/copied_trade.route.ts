@@ -4,6 +4,7 @@ import auth from '../../middlewares/auth';
 import RequestValidator from '../../middlewares/request_validator';
 import { copied_trade_validations } from './copied_trade.validation';
 import requireTradingAccess from '../../middlewares/require_trading_access';
+import { requireActiveSubscription } from '../../middlewares/subscription_guard';
 
 const copiedTradeRouter = Router();
 
@@ -20,6 +21,7 @@ copiedTradeRouter.use(auth('USER', 'MASTER', 'ADMIN'));
 copiedTradeRouter.post(
   '/signals/:signalId/copy',
   requireTradingAccess,
+  requireActiveSubscription('basic'),
   copied_trade_controllers.copy_signal
 );
 

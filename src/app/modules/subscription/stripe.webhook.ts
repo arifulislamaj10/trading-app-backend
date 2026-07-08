@@ -16,31 +16,7 @@ const stripe = new Stripe(configs.stripe.secretKey!, {
 });
 const webhookSecret = configs.stripe.webhookSecret;
 
-// Processed event IDs to prevent duplicate processing within this process lifetime
-// For production-scale, use Redis for cross-process idempotency
-const processedEvents = new Map<string, number>();
-const EVENT_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-
-/**
- * Check if a Stripe event has already been processed (idempotency)
- */
-function isEventProcessed(eventId: string): boolean {
-  const cached = processedEvents.get(eventId);
-  if (cached && Date.now() - cached < EVENT_CACHE_TTL) {
-    return true;
-  }
-  // Clean expired entries
-  for (const [key, timestamp] of processedEvents.entries()) {
-    if (Date.now() - timestamp > EVENT_CACHE_TTL) {
-      processedEvents.delete(key);
-    }
-  }
-  return false;
-}
-
-function markEventProcessed(eventId: string) {
-  processedEvents.set(eventId, Date.now());
-}
+import { StripeWebhookEvent_Model } from "./stripe_webhook_event.schema";
 
 export const handleStripeWebhook = async (req: Request, res: Response) => {
   const sig = req.headers["stripe-signature"] as string;
@@ -59,7 +35,8 @@ export const handleStripeWebhook = async (req: Request, res: Response) => {
     logger.info(`📥 Webhook received: ${event.type} (ID: ${event.id})`);
 
     // Idempotency check - reject already processed events
-    if (isEventProcessed(event.id)) {
+    const existingEvent = await StripeWebhookEvent_Model.findOne({ eventId: event.id });
+    if (existingEvent) {
       logger.warn(`⚠️  Duplicate event detected, skipping: ${event.id}`);
       res.json({ received: true });
       return;
@@ -109,7 +86,20 @@ export const handleStripeWebhook = async (req: Request, res: Response) => {
     }
 
     // Mark event as processed after successful handling
-    markEventProcessed(event.id);
+    try {
+      await StripeWebhookEvent_Model.create({
+        eventId: event.id,
+        eventType: event.type,
+        processedAt: new Date(),
+      });
+    } catch (error: any) {
+      if (error?.code === 11000) {
+        logger.warn(`⚠️  Duplicate event race detected, skipping: ${event.id}`);
+        res.json({ received: true });
+        return;
+      }
+      throw error;
+    }
 
     res.json({ received: true });
   } catch (error: any) {
@@ -284,22 +274,33 @@ async function handleInvoicePaid(invoice: any) {
       invoiceUrl: invoice.hosted_invoice_url || "",
     });
 
-    // Update subscription
+    const periodEnd = invoice.period_end
+      ? new Date(invoice.period_end * 1000)
+      : invoice.lines?.data?.[0]?.period?.end
+        ? new Date(invoice.lines.data[0].period.end * 1000)
+        : null;
+
     await Subscription_Model.findByIdAndUpdate(subscription._id, {
       status: "active",
       lastPaymentDate: new Date(),
-      nextBillingDate:
-        new Date(invoice.lines?.data[0]?.period.end * 1000) || null,
-      currentPeriodStart: new Date(invoice.period_start * 1000),
-      currentPeriodEnd: new Date(invoice.period_end * 1000),
-      signalsUsed: 0, // Reset usage on renewal
+      nextBillingDate: periodEnd,
+      currentPeriodStart: invoice.period_start
+        ? new Date(invoice.period_start * 1000)
+        : subscription.currentPeriodStart,
+      currentPeriodEnd: periodEnd || subscription.currentPeriodEnd,
+      signalsUsed: 0,
     });
 
-    // Update account
-    await Account_Model.findByIdAndUpdate(subscription.accountId, {
-      subscriptionStatus: "active",
-      subscriptionExpiresAt: new Date(invoice.period_end * 1000),
-    });
+    if (periodEnd) {
+      await Account_Model.findByIdAndUpdate(subscription.accountId, {
+        subscriptionStatus: "active",
+        subscriptionExpiresAt: periodEnd,
+      });
+    } else {
+      await Account_Model.findByIdAndUpdate(subscription.accountId, {
+        subscriptionStatus: "active",
+      });
+    }
 
     // Notify user about successful renewal
     await notification_services.create_notification({

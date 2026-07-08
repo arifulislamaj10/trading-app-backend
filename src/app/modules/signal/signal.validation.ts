@@ -131,9 +131,12 @@ export const signalQuerySchema = z.object({
       "draft",
       "scheduled",
       "active",
+      "published",
+      "completed",
       "closed",
       "expired",
       "canceled",
+      "cancelled",
       "won",
       "lost",
     ])

@@ -1,6 +1,6 @@
 import { Types } from "mongoose";
 
-export type TTransactionType = "REWARD" | "WITHDRAWAL";
+export type TTransactionType = "REWARD" | "WITHDRAWAL" | "REFUND";
 export type TTransactionStatus = "PENDING" | "COMPLETED" | "FAILED" | "REJECTED";
 
 export type TWalletTransaction = {
