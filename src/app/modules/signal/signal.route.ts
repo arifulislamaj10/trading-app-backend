@@ -8,7 +8,7 @@ import { aiLimiter } from '../../middlewares/rate_limiter';
 const signalRouter = Router();
 
 // Public routes
-signalRouter.get('/', signal_controllers.get_all_signals);
+signalRouter.get('/', optionalAuth, signal_controllers.get_all_signals);
 
 // Master-only routes (defined before parameterized /:id)
 signalRouter.get('/my/signals', auth('MASTER'), signal_controllers.get_my_signals);

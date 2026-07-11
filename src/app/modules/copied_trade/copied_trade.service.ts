@@ -6,6 +6,7 @@ import { Account_Model } from '../auth/auth.schema';
 import { Master_Model } from '../master/master.schema';
 import { notification_services } from '../notification/notification.service';
 import { badge_services } from '../badge/badge.service';
+import { system_config_services } from '../system_config/system_config.service';
 import { Types } from 'mongoose';
 
 interface TLogTrade {
@@ -14,6 +15,7 @@ interface TLogTrade {
   exitPrice: number;
   lotSize?: number;
   resultPnl?: number;
+  pnlUnit?: 'usd' | 'percent';
   outcome: TradeOutcome;
   notes?: string;
   screenshotUrl?: string;
@@ -27,6 +29,7 @@ interface TTradeFilters {
   assetType?: string;
   startDate?: string;
   endDate?: string;
+  sortBy?: string;
 }
 
 export type DashboardTimeframe = 'week' | 'month' | 'all';
@@ -83,7 +86,7 @@ const copy_signal = async (userId: string, signalId: string) => {
   });
 
   if (existing) {
-    throw new AppError('You have already copied this signal', httpStatus.CONFLICT);
+    throw new AppError('Signal already copied', httpStatus.CONFLICT);
   }
 
   const copiedTrade = await Copied_Trade_Model.create({
@@ -136,6 +139,24 @@ const log_trade = async (userId: string, data: TLogTrade) => {
     throw new AppError('This trade has already been logged', httpStatus.CONFLICT);
   }
 
+  // Validate external platform from dynamic config list
+  if (data.externalPlatform) {
+    const config = await system_config_services.get_config();
+    const allowedPlatforms = config.platforms || [
+      { value: 'binance', label: 'Binance' },
+      { value: 'mt4', label: 'MT4' },
+      { value: 'mt5', label: 'MT5' },
+      { value: 'bybit', label: 'Bybit' },
+    ];
+    const allowedValues = allowedPlatforms.map((p) => p.value);
+    if (!allowedValues.includes(data.externalPlatform)) {
+      throw new AppError(
+        `Invalid platform: ${data.externalPlatform}. Allowed values: ${allowedValues.join(', ')}`,
+        httpStatus.BAD_REQUEST
+      );
+    }
+  }
+
   // Update the trade with trade result
   const updated = await Copied_Trade_Model.findByIdAndUpdate(
     copiedTrade._id,
@@ -145,6 +166,7 @@ const log_trade = async (userId: string, data: TLogTrade) => {
       exitPrice: data.exitPrice,
       lotSize: data.lotSize ?? null,
       resultPnl: data.resultPnl ?? null,
+      pnlUnit: data.pnlUnit || 'usd',
       outcome: data.outcome,
       notes: data.notes ?? '',
       screenshotUrl: data.screenshotUrl ?? '',
@@ -202,10 +224,15 @@ const get_trade_history = async (
     }
   }
 
+  let sortQuery: Record<string, any> = { copiedAt: -1, createdAt: -1 };
+  if (filters.sortBy === 'newest') {
+    sortQuery = { copiedAt: -1, createdAt: -1 };
+  }
+
   const trades = await Copied_Trade_Model.find(query)
     .populate('signalId', 'symbol assetType signalType title entryPrice status')
     .populate('masterId', 'name userProfileUrl')
-    .sort({ createdAt: -1 })
+    .sort(sortQuery)
     .skip(skip)
     .limit(limit);
 
@@ -496,7 +523,16 @@ const get_signals_dashboard = async (
               wins: { $sum: { $cond: [{ $eq: ['$outcome', 'win'] }, 1, 0] } },
               losses: { $sum: { $cond: [{ $eq: ['$outcome', 'loss'] }, 1, 0] } },
               breakevens: { $sum: { $cond: [{ $eq: ['$outcome', 'breakeven'] }, 1, 0] } },
-              profitLoss: { $sum: { $ifNull: ['$resultPnl', 0] } },
+              profitLossUsd: {
+                $sum: {
+                  $cond: [{ $eq: [{ $ifNull: ['$pnlUnit', 'usd'] }, 'usd'] }, { $ifNull: ['$resultPnl', 0] }, 0]
+                }
+              },
+              profitLossPercent: {
+                $sum: {
+                  $cond: [{ $eq: [{ $ifNull: ['$pnlUnit', 'usd'] }, 'percent'] }, { $ifNull: ['$resultPnl', 0] }, 0]
+                }
+              },
             },
           },
         ],
@@ -510,7 +546,16 @@ const get_signals_dashboard = async (
               total: { $sum: 1 },
               wins: { $sum: { $cond: [{ $eq: ['$outcome', 'win'] }, 1, 0] } },
               losses: { $sum: { $cond: [{ $eq: ['$outcome', 'loss'] }, 1, 0] } },
-              profitLoss: { $sum: { $ifNull: ['$resultPnl', 0] } },
+              profitLossUsd: {
+                $sum: {
+                  $cond: [{ $eq: [{ $ifNull: ['$pnlUnit', 'usd'] }, 'usd'] }, { $ifNull: ['$resultPnl', 0] }, 0]
+                }
+              },
+              profitLossPercent: {
+                $sum: {
+                  $cond: [{ $eq: [{ $ifNull: ['$pnlUnit', 'usd'] }, 'percent'] }, { $ifNull: ['$resultPnl', 0] }, 0]
+                }
+              },
             },
           },
           { $sort: { total: -1 } },
@@ -524,6 +569,7 @@ const get_signals_dashboard = async (
               assetType: '$signal.assetType',
               outcome: 1,
               profitLoss: { $ifNull: ['$resultPnl', 0] },
+              pnlUnit: { $ifNull: ['$pnlUnit', 'usd'] },
               loggedAt: 1,
             },
           },
@@ -537,14 +583,16 @@ const get_signals_dashboard = async (
     wins: 0,
     losses: 0,
     breakevens: 0,
-    profitLoss: 0,
+    profitLossUsd: 0,
+    profitLossPercent: 0,
   };
 
   const totalTrades = overview.totalTrades as number;
   const wins = overview.wins as number;
   const losses = overview.losses as number;
   const breakevens = overview.breakevens as number;
-  const profitLoss = Math.round((overview.profitLoss as number) * 100) / 100;
+  const profitLossUsd = Math.round((overview.profitLossUsd as number) * 100) / 100;
+  const profitLossPercent = Math.round((overview.profitLossPercent as number) * 100) / 100;
 
   const winLossDenominator = wins + losses;
   const winRate =
@@ -564,18 +612,20 @@ const get_signals_dashboard = async (
     total: number;
     wins: number;
     losses: number;
-    profitLoss: number;
+    profitLossUsd: number;
+    profitLossPercent: number;
   }>;
 
   const topSymbol = bySymbol[0];
 
   const tradesByAsset = bySymbol.map((row) => {
-    const roundedPnl = Math.round(row.profitLoss * 100) / 100;
+    const roundedPnlUsd = Math.round(row.profitLossUsd * 100) / 100;
+    const roundedPnlPercent = Math.round(row.profitLossPercent * 100) / 100;
     let barColor: 'win' | 'loss' | 'neutral' = 'neutral';
     if (row.wins > row.losses) barColor = 'win';
     else if (row.losses > row.wins) barColor = 'loss';
-    else if (roundedPnl > 0) barColor = 'win';
-    else if (roundedPnl < 0) barColor = 'loss';
+    else if (roundedPnlUsd > 0 || roundedPnlPercent > 0) barColor = 'win';
+    else if (roundedPnlUsd < 0 || roundedPnlPercent < 0) barColor = 'loss';
 
     return {
       symbol: row._id.symbol,
@@ -583,7 +633,8 @@ const get_signals_dashboard = async (
       total: row.total,
       wins: row.wins,
       losses: row.losses,
-      profitLoss: roundedPnl,
+      profitLossUsd: roundedPnlUsd,
+      profitLossPercent: roundedPnlPercent,
       barColor,
     };
   });
@@ -593,12 +644,14 @@ const get_signals_dashboard = async (
     assetType: string;
     outcome: TradeOutcome | null;
     profitLoss: number;
+    pnlUnit: 'usd' | 'percent';
     loggedAt: Date;
   }>).map((bar) => ({
     symbol: bar.symbol,
     assetType: bar.assetType,
     outcome: bar.outcome,
     profitLoss: Math.round(bar.profitLoss * 100) / 100,
+    pnlUnit: bar.pnlUnit || 'usd',
     barColor:
       bar.outcome === 'win' ? 'win' : bar.outcome === 'loss' ? 'loss' : ('neutral' as const),
     loggedAt: bar.loggedAt,
@@ -609,8 +662,9 @@ const get_signals_dashboard = async (
     summary: {
       winRate,
       totalTrades,
-      profitLoss,
-      profitLossFormatted: formatProfitLoss(profitLoss),
+      profitLossUsd,
+      profitLossPercent,
+      profitLossFormatted: formatProfitLoss(profitLossUsd),
       currency: 'USD',
       topTradedAsset: topSymbol
         ? {

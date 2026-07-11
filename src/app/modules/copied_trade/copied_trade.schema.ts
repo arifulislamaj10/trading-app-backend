@@ -18,6 +18,7 @@ export interface ICopiedTrade {
   exitPrice: number | null;
   lotSize: number | null;
   resultPnl: number | null;
+  pnlUnit: 'usd' | 'percent';
   outcome: TradeOutcome | null;
   notes: string;
   screenshotUrl: string;
@@ -47,6 +48,7 @@ const copiedTradeSchema = new Schema<ICopiedTrade>(
     exitPrice: { type: Number, default: null },
     lotSize: { type: Number, default: null },
     resultPnl: { type: Number, default: null },
+    pnlUnit: { type: String, enum: ['usd', 'percent'], default: 'usd' },
     outcome: { type: String, enum: ['win', 'loss', 'breakeven'], default: null },
     notes: { type: String, default: '' },
     screenshotUrl: { type: String, default: '' },

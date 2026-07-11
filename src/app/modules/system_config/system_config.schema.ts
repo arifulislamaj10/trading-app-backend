@@ -28,6 +28,20 @@ const systemConfigSchema = new Schema<ISystemConfig>(
       type: Number,
       default: 1000,
     },
+    platforms: {
+      type: [
+        {
+          value: { type: String, required: true },
+          label: { type: String, required: true },
+        },
+      ],
+      default: () => [
+        { value: "binance", label: "Binance" },
+        { value: "mt4", label: "MT4" },
+        { value: "mt5", label: "MT5" },
+        { value: "bybit", label: "Bybit" },
+      ],
+    },
     updatedBy: {
       type: String,
     },

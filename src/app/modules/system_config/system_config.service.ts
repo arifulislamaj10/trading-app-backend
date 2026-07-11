@@ -193,6 +193,26 @@ const update_referral_campaign_goal = async (goal: number, adminId: string) => {
   return get_config_with_tiers();
 };
 
+const update_platforms = async (platforms: Array<{ value: string; label: string }>, adminId: string) => {
+  const config = await get_config();
+  config.platforms = platforms;
+  config.updatedBy = adminId;
+  await config.save();
+  return config;
+};
+
+const get_platforms = async () => {
+  const config = await get_config();
+  return config.platforms && config.platforms.length > 0
+    ? config.platforms
+    : [
+        { value: "binance", label: "Binance" },
+        { value: "mt4", label: "MT4" },
+        { value: "mt5", label: "MT5" },
+        { value: "bybit", label: "Bybit" },
+      ];
+};
+
 export const system_config_services = {
   get_config,
   get_config_with_tiers,
@@ -201,4 +221,6 @@ export const system_config_services = {
   update_referral_reward,
   update_referral_rewards_by_tier,
   update_referral_campaign_goal,
+  update_platforms,
+  get_platforms,
 };

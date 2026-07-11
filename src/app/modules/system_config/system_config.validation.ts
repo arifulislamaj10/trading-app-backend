@@ -20,8 +20,18 @@ const update_referral_campaign_goal = z.object({
   goal: z.number().min(1, "Goal must be at least 1"),
 });
 
+const update_platforms = z.object({
+  platforms: z.array(
+    z.object({
+      value: z.string().min(1, "Platform value cannot be empty"),
+      label: z.string().min(1, "Platform label cannot be empty"),
+    })
+  ).min(1, "At least one platform must be specified"),
+});
+
 export const system_config_validations = {
   update_referral_reward,
   update_referral_rewards_by_tier,
   update_referral_campaign_goal,
+  update_platforms,
 };

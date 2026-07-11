@@ -3,6 +3,7 @@ import httpStatus from 'http-status';
 import { Signal_Model, SignalStatus, ISignal, WorkflowStatus } from './signal.schema';
 import { Master_Model } from '../master/master.schema';
 import { Account_Model } from '../auth/auth.schema';
+import { Copied_Trade_Model } from '../copied_trade/copied_trade.schema';
 import { Types } from 'mongoose';
 import { contribution_services } from '../contribution/contribution.service';
 import { notification_services } from '../notification/notification.service';
@@ -74,6 +75,8 @@ interface TSignalFilters {
   status?: string;
   isPremium?: boolean;
   authorId?: string;
+  symbol?: string;
+  sortBy?: string;
 }
 
 const assertMasterApproved = async (accountId: string) => {
@@ -554,6 +557,7 @@ const update_signal = async (
       status: 'completed',
       closedAt: new Date(),
       resultPnl: finalResultPnl,
+      pnlUnit: (data as any).pnlUnit || 'usd',
       closeNotes: data.closeNotes || '',
     };
 
@@ -601,6 +605,7 @@ const update_signal = async (
 
   const updatePayload: Record<string, unknown> = { ...data };
   delete updatePayload.resultPnl;
+  delete (updatePayload as any).pnlUnit;
   delete updatePayload.closeNotes;
 
   if ('takeProfit1' in data) updatePayload.takeProfit1 = data.takeProfit1 ?? null;
@@ -836,6 +841,9 @@ const apply_filters = (query: any, filters: TSignalFilters) => {
 
   if (filters.assetType) query.assetType = filters.assetType;
   if (filters.signalType) query.signalType = filters.signalType;
+  if (filters.symbol) {
+    query.symbol = { $regex: `^${filters.symbol.trim()}$`, $options: 'i' };
+  }
   
   // Handle status filtering (support virtual statuses won/lost)
   if (filters.status) {
@@ -866,7 +874,8 @@ const apply_filters = (query: any, filters: TSignalFilters) => {
 const get_signals = async (
   page: number = 1,
   limit: number = 20,
-  filters: TSignalFilters = {}
+  filters: TSignalFilters = {},
+  viewerAccountId?: string
 ) => {
   const skip = (page - 1) * limit;
   const query: Record<string, unknown> = {};
@@ -886,16 +895,38 @@ const get_signals = async (
     }
   }
 
+  const sortQuery: Record<string, any> = { publishedAt: -1, createdAt: -1 };
+
   const signals = await Signal_Model.find(query)
     .populate('authorId', 'name userProfileUrl')
-    .sort({ isFeatured: -1, publishedAt: -1, createdAt: -1 })
+    .sort(sortQuery)
     .skip(skip)
     .limit(limit);
 
   const total = await Signal_Model.countDocuments(query);
+  let enrichedData = enrichSignals(signals);
+
+  if (viewerAccountId) {
+    const signalIds = signals.map((s) => s._id);
+    const copiedTrades = await Copied_Trade_Model.find({
+      userId: new Types.ObjectId(viewerAccountId),
+      signalId: { $in: signalIds },
+    }).select('signalId');
+    const copiedSignalIdsSet = new Set(copiedTrades.map((t) => t.signalId.toString()));
+
+    enrichedData = enrichedData.map((s: any) => ({
+      ...s,
+      isCopied: copiedSignalIdsSet.has((s._id || s.id).toString()),
+    })) as any;
+  } else {
+    enrichedData = enrichedData.map((s) => ({
+      ...s,
+      isCopied: false,
+    })) as any;
+  }
 
   return {
-    data: enrichSignals(signals),
+    data: enrichedData,
     meta: {
       page,
       limit,
@@ -973,7 +1004,20 @@ const get_signal_by_id = async (
     );
   }
 
-  return enrichSignal(signal);
+  const enriched = enrichSignal(signal);
+  let isCopied = false;
+  if (viewerAccountId) {
+    const copyExists = await Copied_Trade_Model.exists({
+      userId: new Types.ObjectId(viewerAccountId),
+      signalId: new Types.ObjectId(signalId),
+    });
+    isCopied = !!copyExists;
+  }
+
+  return {
+    ...enriched,
+    isCopied,
+  };
 };
 
 const get_my_signals = async (

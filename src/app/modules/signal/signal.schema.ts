@@ -62,6 +62,7 @@ export interface ISignal {
 
   // Performance tracking
   resultPnl: number | null;
+  pnlUnit: 'usd' | 'percent';
   closedAt: Date | null;
   closeNotes: string;
 
@@ -129,6 +130,11 @@ const signalSchema = new Schema<ISignal>(
 
     // Performance tracking
     resultPnl: { type: Number, default: null },
+    pnlUnit: {
+      type: String,
+      enum: ['usd', 'percent'],
+      default: 'usd',
+    },
     closedAt: { type: Date, default: null },
     closeNotes: { type: String, default: '' },
 

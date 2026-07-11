@@ -92,7 +92,8 @@ export const copiedTradeSwaggerDocs = {
                         properties: {
                           winRate: { type: 'number', example: 72 },
                           totalTrades: { type: 'integer', example: 128 },
-                          profitLoss: { type: 'number', example: 1250 },
+                          profitLossUsd: { type: 'number', example: 1250 },
+                          profitLossPercent: { type: 'number', example: 15.5 },
                           profitLossFormatted: { type: 'string', example: '+$1,250' },
                           currency: { type: 'string', example: 'USD' },
                           topTradedAsset: {
@@ -135,8 +136,24 @@ export const copiedTradeSwaggerDocs = {
                             total: { type: 'integer' },
                             wins: { type: 'integer' },
                             losses: { type: 'integer' },
-                            profitLoss: { type: 'number' },
+                            profitLossUsd: { type: 'number' },
+                            profitLossPercent: { type: 'number' },
                             barColor: { type: 'string', enum: ['win', 'loss', 'neutral'] },
+                          },
+                        },
+                      },
+                      tradeBars: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            symbol: { type: 'string' },
+                            assetType: { type: 'string' },
+                            outcome: { type: 'string', nullable: true },
+                            profitLoss: { type: 'number' },
+                            pnlUnit: { type: 'string', enum: ['usd', 'percent'] },
+                            barColor: { type: 'string', enum: ['win', 'loss', 'neutral'] },
+                            loggedAt: { type: 'string', format: 'date-time' },
                           },
                         },
                       },

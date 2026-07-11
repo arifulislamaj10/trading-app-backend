@@ -40,6 +40,7 @@ const get_trade_history = catchAsync(async (req: Request, res: Response) => {
   if (req.query.assetType) filters.assetType = req.query.assetType as string;
   if (req.query.startDate) filters.startDate = req.query.startDate as string;
   if (req.query.endDate) filters.endDate = req.query.endDate as string;
+  if (req.query.sortBy) filters.sortBy = req.query.sortBy as string;
 
   const result = await copied_trade_services.get_trade_history(userId, page, limit, filters);
 

@@ -85,8 +85,11 @@ const get_all_signals = catchAsync(async (req, res) => {
   if (req.query.isPremium !== undefined)
     filters.isPremium = req.query.isPremium === "true";
   if (req.query.authorId) filters.authorId = req.query.authorId as string;
+  if (req.query.symbol) filters.symbol = req.query.symbol as string;
+  if (req.query.sortBy) filters.sortBy = req.query.sortBy as string;
 
-  const result = await signal_services.get_signals(page, limit, filters);
+  const viewerAccountId = req.user?.userId;
+  const result = await signal_services.get_signals(page, limit, filters, viewerAccountId);
 
   manageResponse(res, {
     success: true,

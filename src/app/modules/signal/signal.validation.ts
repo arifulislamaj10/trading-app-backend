@@ -35,6 +35,9 @@ export const signalBaseFields = z.object({
   scheduledAt: z.string().datetime().nullable().optional(),
   publishedAt: z.string().datetime().nullable().optional(),
   closedAt: z.string().datetime().nullable().optional(),
+  resultPnl: z.coerce.number().nullable().optional(),
+  pnlUnit: z.enum(["usd", "percent"]).default("usd").optional(),
+  closeNotes: z.string().max(1000).optional(),
   status: z
     .enum([
       "draft",
@@ -112,6 +115,8 @@ export const closeSignalSchema = z.object({
 export const signalQuerySchema = z.object({
   page: z.coerce.number().min(1).optional(),
   limit: z.coerce.number().min(1).max(100).optional(),
+  symbol: z.string().optional(),
+  sortBy: z.string().optional(),
   assetType: z
     .enum([
       "forex",

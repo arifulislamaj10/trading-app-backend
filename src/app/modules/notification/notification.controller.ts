@@ -3,6 +3,46 @@ import manageResponse from '../../utils/manage_response';
 import { notification_services } from './notification.service';
 import httpStatus from 'http-status';
 
+const enrichNotification = (notification: any) => {
+  const obj = typeof notification.toObject === 'function' ? notification.toObject() : notification;
+  const data = obj.data || {};
+
+  // Extract signalId from data or link if not directly present
+  let signalId = data.signalId || obj.signalId || null;
+  if (!signalId && obj.link) {
+    const match = obj.link.match(/\/signals\/([a-fA-F0-9]{24})/);
+    if (match) {
+      signalId = match[1];
+    }
+  }
+
+  const enrichedData = {
+    signalId: signalId ? String(signalId) : null,
+    symbol: data.symbol || null,
+    signalType: data.signalType || null,
+    badgeKey: data.badgeKey || null,
+    badgeName: data.badgeName || null,
+    ...data,
+  };
+
+  // Map backend notification types to client types
+  let type = obj.type;
+  if (type === 'new_signal') type = 'signal_published';
+  else if (type === 'trade_result_logged') type = 'trade_update';
+  else if (type === 'badge_earned') type = 'badge';
+
+  return {
+    _id: obj._id,
+    type,
+    title: obj.title,
+    message: obj.message,
+    isRead: obj.isRead,
+    link: obj.link,
+    data: enrichedData,
+    createdAt: obj.createdAt,
+  };
+};
+
 const get_my_notifications = catchAsync(async (req, res) => {
   const accountId = req.user!.userId;
   const page = Number(req.query.page) || 1;
@@ -18,12 +58,13 @@ const get_my_notifications = catchAsync(async (req, res) => {
   }
 
   const result = await notification_services.get_my_notifications(accountId, page, limit, filters);
+  const enrichedData = result.data.map(enrichNotification);
 
   manageResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
     message: req.query.isRead === 'true' ? 'Unread notifications retrieved' : 'Notifications retrieved',
-    data: result.data,
+    data: enrichedData,
     unreadCount: result.unreadCount,
     meta: result.meta,
   });
@@ -40,6 +81,33 @@ const get_notification_by_id = catchAsync(async (req, res) => {
     success: true,
     statusCode: httpStatus.OK,
     message: 'Notification retrieved',
+    data: enrichNotification(result),
+  });
+});
+
+const mark_single_as_read = catchAsync(async (req, res) => {
+  const accountId = req.user!.userId;
+  const result = await notification_services.update_notification(accountId, req.params.id as string, { isRead: true });
+
+  manageResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'Notification marked as read',
+    data: {
+      _id: result._id,
+      isRead: result.isRead,
+    },
+  });
+});
+
+const mark_all_as_read = catchAsync(async (req, res) => {
+  const accountId = req.user!.userId;
+  const result = await notification_services.mark_all_as_read(accountId);
+
+  manageResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: 'All notifications marked as read',
     data: result,
   });
 });
@@ -109,7 +177,10 @@ const get_unread_count = catchAsync(async (req, res) => {
 export const notification_controllers = {
   get_my_notifications,
   get_notification_by_id,
+  mark_single_as_read,
+  mark_all_as_read,
   update_notification,
   delete_notification,
   get_unread_count,
 };
+

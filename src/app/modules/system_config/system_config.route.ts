@@ -33,4 +33,19 @@ router.patch(
   system_config_controllers.update_referral_campaign_goal
 );
 
+router.patch(
+  "/platforms",
+  auth("ADMIN"),
+  RequestValidator(system_config_validations.update_platforms),
+  system_config_controllers.update_platforms
+);
+
+const publicRouter = Router();
+
+publicRouter.get(
+  "/platforms",
+  system_config_controllers.get_platforms
+);
+
+export const public_config_routes = publicRouter;
 export const system_config_routes = router;

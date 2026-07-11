@@ -24,10 +24,16 @@ export interface ISubscriptionTierInfo {
   plans: ISubscriptionTierPlan[];
 }
 
+export interface IPlatform {
+  value: string;
+  label: string;
+}
+
 export interface ISystemConfig extends Document {
   referralRewardAmount: number; // legacy default / fallback in dollars
   referralRewardsByTier: IReferralRewardsByTier;
   referralCampaignGoal: number;
+  platforms: IPlatform[];
   updatedBy?: string;
   createdAt: Date;
   updatedAt: Date;
