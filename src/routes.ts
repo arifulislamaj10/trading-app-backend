@@ -19,6 +19,7 @@ import { wallet_transaction_routes } from './app/modules/wallet_transaction/wall
 import { system_config_routes, public_config_routes } from './app/modules/system_config/system_config.route';
 import badgeRouter from './app/modules/badge/badge.route';
 import trainingRouter from './app/modules/training/training.route';
+import academyRouter from './app/modules/academy/academy.route';
 
 const appRouter = Router();
 
@@ -43,13 +44,14 @@ const moduleRoutes = [
     { path: '/copied-trades', route: copiedTradeRouter },
     { path: '/badges', route: badgeRouter },
     { path: '/training', route: trainingRouter },
+    { path: '/academy', route: academyRouter },
 
     // Ranking & engagement modules
     { path: '/contributions', route: contributionRouter },
     { path: '/leaderboard', route: leaderboardRouter },
     { path: '/top-traders', route: topTradersRouter },
 
-    // Admin module
+    // Admin module (includes /admin/academy via nested router)
     { path: '/admin', route: adminRouter },
     { path: '/admin/settings', route: system_config_routes },
     { path: '/config', route: public_config_routes },

@@ -48,6 +48,9 @@ export const signalSwaggerDocs = {
                         likeCount: { type: "integer", example: 28 },
                         commentCount: { type: "integer", example: 12 },
                         bookmarkCount: { type: "integer", example: 5 },
+                        isLiked: { type: "boolean", example: false },
+                        isBookmarked: { type: "boolean", example: false },
+                        isCopied: { type: "boolean", example: false },
                         copierCount: { type: "integer", example: 8 },
                         authorId: {
                           type: "object",
@@ -236,27 +239,47 @@ export const signalSwaggerDocs = {
   "/api/v1/signals/{id}/like": {
     post: {
       tags: ["Signals"],
-      summary: "Like a signal",
-      description: "Like a signal (increments likeCount and tracks contribution).",
+      summary: "Toggle like on a signal",
+      description: "Toggle like. Returns { isLiked, likeCount }.",
       security: [{ bearerAuth: [] }],
       parameters: [
         { name: "id", in: "path", required: true, schema: { type: "string" } },
       ],
       responses: {
-        200: { description: "Signal liked successfully" },
+        200: {
+          description: "Liked or Unliked",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  success: { type: "boolean" },
+                  message: { type: "string", example: "Liked" },
+                  data: {
+                    type: "object",
+                    properties: {
+                      isLiked: { type: "boolean" },
+                      likeCount: { type: "integer" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
         404: { description: "Signal not found" },
       },
     },
     delete: {
       tags: ["Signals"],
       summary: "Unlike a signal",
-      description: "Remove like from a signal (decrements likeCount).",
+      description: "Explicit unlike (kept for backward compatibility).",
       security: [{ bearerAuth: [] }],
       parameters: [
         { name: "id", in: "path", required: true, schema: { type: "string" } },
       ],
       responses: {
-        200: { description: "Signal unliked successfully" },
+        200: { description: "Unliked" },
         404: { description: "Signal not found" },
       },
     },
@@ -265,29 +288,47 @@ export const signalSwaggerDocs = {
   "/api/v1/signals/{id}/bookmark": {
     post: {
       tags: ["Signals"],
-      summary: "Bookmark a signal",
-      description: "Bookmark a signal for later reference (increments bookmarkCount and tracks contribution).",
-      deprecated: true,
+      summary: "Toggle bookmark/save on a signal",
+      description: "Toggle bookmark. Returns { isBookmarked, bookmarkCount }.",
       security: [{ bearerAuth: [] }],
       parameters: [
         { name: "id", in: "path", required: true, schema: { type: "string" } },
       ],
       responses: {
-        200: { description: "Signal bookmarked successfully" },
+        200: {
+          description: "Saved or Unsaved",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  success: { type: "boolean" },
+                  message: { type: "string", example: "Saved" },
+                  data: {
+                    type: "object",
+                    properties: {
+                      isBookmarked: { type: "boolean" },
+                      bookmarkCount: { type: "integer" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
         404: { description: "Signal not found" },
       },
     },
     delete: {
       tags: ["Signals"],
       summary: "Remove bookmark",
-      description: "Remove bookmark from a signal (decrements bookmarkCount).",
-      deprecated: true,
+      description: "Explicit unbookmark (kept for backward compatibility).",
       security: [{ bearerAuth: [] }],
       parameters: [
         { name: "id", in: "path", required: true, schema: { type: "string" } },
       ],
       responses: {
-        200: { description: "Bookmark removed successfully" },
+        200: { description: "Unsaved" },
         404: { description: "Signal not found" },
       },
     },

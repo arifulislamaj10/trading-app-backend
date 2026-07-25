@@ -107,4 +107,10 @@ export const configs = {
     features: {
         signalAiWorkflow: process.env.SIGNAL_AI_WORKFLOW_ENABLED === 'true',
     },
+    firebase: {
+        projectId: process.env.FIREBASE_PROJECT_ID || '',
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL || '',
+        privateKey: process.env.FIREBASE_PRIVATE_KEY || '',
+        serviceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH || '',
+    },
 };

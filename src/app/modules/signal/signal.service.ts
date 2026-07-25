@@ -908,20 +908,41 @@ const get_signals = async (
 
   if (viewerAccountId) {
     const signalIds = signals.map((s) => s._id);
-    const copiedTrades = await Copied_Trade_Model.find({
-      userId: new Types.ObjectId(viewerAccountId),
-      signalId: { $in: signalIds },
-    }).select('signalId');
-    const copiedSignalIdsSet = new Set(copiedTrades.map((t) => t.signalId.toString()));
+    const [copiedTrades, engagements] = await Promise.all([
+      Copied_Trade_Model.find({
+        userId: new Types.ObjectId(viewerAccountId),
+        signalId: { $in: signalIds },
+      }).select('signalId'),
+      SignalEngagement_Model.find({
+        accountId: new Types.ObjectId(viewerAccountId),
+        signalId: { $in: signalIds },
+        type: { $in: ['like', 'bookmark'] },
+      }).select('signalId type'),
+    ]);
 
-    enrichedData = enrichedData.map((s: any) => ({
-      ...s,
-      isCopied: copiedSignalIdsSet.has((s._id || s.id).toString()),
-    })) as any;
+    const copiedSignalIdsSet = new Set(copiedTrades.map((t) => t.signalId.toString()));
+    const likedSignalIdsSet = new Set(
+      engagements.filter((e) => e.type === 'like').map((e) => e.signalId.toString())
+    );
+    const bookmarkedSignalIdsSet = new Set(
+      engagements.filter((e) => e.type === 'bookmark').map((e) => e.signalId.toString())
+    );
+
+    enrichedData = enrichedData.map((s: any) => {
+      const id = (s._id || s.id).toString();
+      return {
+        ...s,
+        isCopied: copiedSignalIdsSet.has(id),
+        isLiked: likedSignalIdsSet.has(id),
+        isBookmarked: bookmarkedSignalIdsSet.has(id),
+      };
+    }) as any;
   } else {
     enrichedData = enrichedData.map((s) => ({
       ...s,
       isCopied: false,
+      isLiked: false,
+      isBookmarked: false,
     })) as any;
   }
 
@@ -1006,17 +1027,30 @@ const get_signal_by_id = async (
 
   const enriched = enrichSignal(signal);
   let isCopied = false;
+  let isLiked = false;
+  let isBookmarked = false;
   if (viewerAccountId) {
-    const copyExists = await Copied_Trade_Model.exists({
-      userId: new Types.ObjectId(viewerAccountId),
-      signalId: new Types.ObjectId(signalId),
-    });
+    const [copyExists, engagements] = await Promise.all([
+      Copied_Trade_Model.exists({
+        userId: new Types.ObjectId(viewerAccountId),
+        signalId: new Types.ObjectId(signalId),
+      }),
+      SignalEngagement_Model.find({
+        accountId: new Types.ObjectId(viewerAccountId),
+        signalId: new Types.ObjectId(signalId),
+        type: { $in: ['like', 'bookmark'] },
+      }).select('type'),
+    ]);
     isCopied = !!copyExists;
+    isLiked = engagements.some((e) => e.type === 'like');
+    isBookmarked = engagements.some((e) => e.type === 'bookmark');
   }
 
   return {
     ...enriched,
     isCopied,
+    isLiked,
+    isBookmarked,
   };
 };
 
@@ -1064,8 +1098,16 @@ const increment_view = async (signalId: string, viewerId?: string) => {
   }
 };
 
+const getEngagementCounts = async (signalId: string) => {
+  const signal = await Signal_Model.findById(signalId).select('likeCount bookmarkCount');
+  return {
+    likeCount: Math.max(0, signal?.likeCount ?? 0),
+    bookmarkCount: Math.max(0, signal?.bookmarkCount ?? 0),
+  };
+};
+
 /**
- * Like a signal
+ * Toggle like on a signal
  */
 const like_signal = async (accountId: string, signalId: string) => {
   if (!Types.ObjectId.isValid(signalId)) {
@@ -1077,26 +1119,40 @@ const like_signal = async (accountId: string, signalId: string) => {
     throw new AppError('Signal not found', httpStatus.NOT_FOUND);
   }
 
-  try {
-    await SignalEngagement_Model.create({
-      accountId: new Types.ObjectId(accountId),
-      signalId: new Types.ObjectId(signalId),
-      type: 'like',
-    });
-    await Signal_Model.findByIdAndUpdate(signalId, { $inc: { likeCount: 1 } });
-    contribution_services.track_contribution(accountId, 'like_signal', signalId);
-  } catch (error: any) {
-    if (error?.code === 11000) {
-      return { message: 'Signal already liked' };
-    }
-    throw error;
+  const existing = await SignalEngagement_Model.findOneAndDelete({
+    accountId: new Types.ObjectId(accountId),
+    signalId: new Types.ObjectId(signalId),
+    type: 'like',
+  });
+
+  if (existing) {
+    await Signal_Model.findByIdAndUpdate(signalId, { $inc: { likeCount: -1 } });
+    const counts = await getEngagementCounts(signalId);
+    return {
+      message: 'Unliked',
+      isLiked: false,
+      likeCount: counts.likeCount,
+    };
   }
 
-  return { message: 'Signal liked successfully' };
+  await SignalEngagement_Model.create({
+    accountId: new Types.ObjectId(accountId),
+    signalId: new Types.ObjectId(signalId),
+    type: 'like',
+  });
+  await Signal_Model.findByIdAndUpdate(signalId, { $inc: { likeCount: 1 } });
+  contribution_services.track_contribution(accountId, 'like_signal', signalId);
+  const counts = await getEngagementCounts(signalId);
+
+  return {
+    message: 'Liked',
+    isLiked: true,
+    likeCount: counts.likeCount,
+  };
 };
 
 /**
- * Unlike a signal
+ * Unlike a signal (explicit DELETE)
  */
 const unlike_signal = async (accountId: string, signalId: string) => {
   if (!Types.ObjectId.isValid(signalId)) {
@@ -1118,11 +1174,16 @@ const unlike_signal = async (accountId: string, signalId: string) => {
     await Signal_Model.findByIdAndUpdate(signalId, { $inc: { likeCount: -1 } });
   }
 
-  return { message: 'Signal unliked successfully' };
+  const counts = await getEngagementCounts(signalId);
+  return {
+    message: 'Unliked',
+    isLiked: false,
+    likeCount: counts.likeCount,
+  };
 };
 
 /**
- * Bookmark a signal
+ * Toggle bookmark on a signal
  */
 const bookmark_signal = async (accountId: string, signalId: string) => {
   if (!Types.ObjectId.isValid(signalId)) {
@@ -1134,26 +1195,40 @@ const bookmark_signal = async (accountId: string, signalId: string) => {
     throw new AppError('Signal not found', httpStatus.NOT_FOUND);
   }
 
-  try {
-    await SignalEngagement_Model.create({
-      accountId: new Types.ObjectId(accountId),
-      signalId: new Types.ObjectId(signalId),
-      type: 'bookmark',
-    });
-    await Signal_Model.findByIdAndUpdate(signalId, { $inc: { bookmarkCount: 1 } });
-    contribution_services.track_contribution(accountId, 'bookmark_signal', signalId);
-  } catch (error: any) {
-    if (error?.code === 11000) {
-      return { message: 'Signal already bookmarked' };
-    }
-    throw error;
+  const existing = await SignalEngagement_Model.findOneAndDelete({
+    accountId: new Types.ObjectId(accountId),
+    signalId: new Types.ObjectId(signalId),
+    type: 'bookmark',
+  });
+
+  if (existing) {
+    await Signal_Model.findByIdAndUpdate(signalId, { $inc: { bookmarkCount: -1 } });
+    const counts = await getEngagementCounts(signalId);
+    return {
+      message: 'Unsaved',
+      isBookmarked: false,
+      bookmarkCount: counts.bookmarkCount,
+    };
   }
 
-  return { message: 'Signal bookmarked successfully' };
+  await SignalEngagement_Model.create({
+    accountId: new Types.ObjectId(accountId),
+    signalId: new Types.ObjectId(signalId),
+    type: 'bookmark',
+  });
+  await Signal_Model.findByIdAndUpdate(signalId, { $inc: { bookmarkCount: 1 } });
+  contribution_services.track_contribution(accountId, 'bookmark_signal', signalId);
+  const counts = await getEngagementCounts(signalId);
+
+  return {
+    message: 'Saved',
+    isBookmarked: true,
+    bookmarkCount: counts.bookmarkCount,
+  };
 };
 
 /**
- * Remove bookmark
+ * Remove bookmark (explicit DELETE)
  */
 const unbookmark_signal = async (accountId: string, signalId: string) => {
   if (!Types.ObjectId.isValid(signalId)) {
@@ -1175,7 +1250,12 @@ const unbookmark_signal = async (accountId: string, signalId: string) => {
     await Signal_Model.findByIdAndUpdate(signalId, { $inc: { bookmarkCount: -1 } });
   }
 
-  return { message: 'Bookmark removed successfully' };
+  const counts = await getEngagementCounts(signalId);
+  return {
+    message: 'Unsaved',
+    isBookmarked: false,
+    bookmarkCount: counts.bookmarkCount,
+  };
 };
 
 /**

@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { notification_controllers } from './notification.controller';
 import auth from '../../middlewares/auth';
+import RequestValidator from '../../middlewares/request_validator';
+import { device_validations } from './device.validation';
 
 const notificationRouter = Router();
 
@@ -12,6 +14,18 @@ notificationRouter.get('/', notification_controllers.get_my_notifications);
 
 // GET /unread-count - Get unread notification count
 notificationRouter.get('/unread-count', notification_controllers.get_unread_count);
+
+// Device tokens for FCM push
+notificationRouter.post(
+  '/device-token',
+  RequestValidator(device_validations.registerDeviceSchema),
+  notification_controllers.register_device_token
+);
+notificationRouter.delete(
+  '/device-token',
+  RequestValidator(device_validations.unregisterDeviceSchema),
+  notification_controllers.unregister_device_token
+);
 
 // PATCH /read-all - Mark all unread notifications as read
 notificationRouter.patch('/read-all', notification_controllers.mark_all_as_read);

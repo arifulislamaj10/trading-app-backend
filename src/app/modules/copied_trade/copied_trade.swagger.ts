@@ -26,7 +26,8 @@ export const copiedTradeSwaggerDocs = {
     post: {
       tags: ['Copy Trades'],
       summary: 'Log a trade result',
-      description: 'Submit the actual execution result for a previously copied signal. Requires entry/exit price and outcome.',
+      description:
+        'Submit the actual execution result for a previously copied signal. Accepts stopLoss and targetPrice (Target alias; stored as exitPrice + targetPrice).',
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
@@ -34,17 +35,20 @@ export const copiedTradeSwaggerDocs = {
           'application/json': {
             schema: {
               type: 'object',
-              required: ['signalId', 'entryPrice', 'exitPrice', 'outcome'],
+              required: ['signalId', 'entryPrice', 'outcome'],
               properties: {
                 signalId: { type: 'string' },
-                entryPrice: { type: 'number', example: 1.0850 },
-                exitPrice: { type: 'number', example: 1.0920 },
-                lotSize: { type: 'number', example: 0.5 },
-                resultPnl: { type: 'number', example: 350 },
+                entryPrice: { type: 'number', example: 108500 },
+                stopLoss: { type: 'number', example: 107200 },
+                exitPrice: { type: 'number', example: 109500 },
+                targetPrice: { type: 'number', example: 109500 },
+                lotSize: { type: 'number', example: 0.1 },
+                resultPnl: { type: 'number', example: 120 },
+                pnlUnit: { type: 'string', enum: ['usd', 'percent'] },
                 outcome: { type: 'string', enum: ['win', 'loss', 'breakeven'] },
                 notes: { type: 'string', example: 'Followed master\'s TP2 target' },
                 screenshotUrl: { type: 'string', example: 'https://example.com/screenshot.png' },
-                externalPlatform: { type: 'string', example: 'binance' },
+                externalPlatform: { type: 'string', example: 'bybit' },
               },
             },
           },

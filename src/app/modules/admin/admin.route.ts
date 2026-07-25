@@ -3,11 +3,15 @@ import { admin_controllers } from './admin.controller';
 import auth from '../../middlewares/auth';
 import RequestValidator from '../../middlewares/request_validator';
 import { admin_validations } from './admin.validation';
+import { academyAdminRouter } from '../academy/academy.route';
 
 const adminRouter = Router();
 
 // All admin routes require ADMIN role
 adminRouter.use(auth('ADMIN'));
+
+// Academy admin CRUD at /admin/academy (inherits ADMIN auth above)
+adminRouter.use('/academy', academyAdminRouter);
 
 adminRouter.get('/analytics', admin_controllers.get_platform_analytics);
 adminRouter.post(

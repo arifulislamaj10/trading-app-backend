@@ -12,7 +12,9 @@ import { Types } from 'mongoose';
 interface TLogTrade {
   signalId: string;
   entryPrice: number;
-  exitPrice: number;
+  stopLoss?: number | null;
+  exitPrice?: number;
+  targetPrice?: number;
   lotSize?: number;
   resultPnl?: number;
   pnlUnit?: 'usd' | 'percent';
@@ -157,13 +159,24 @@ const log_trade = async (userId: string, data: TLogTrade) => {
     }
   }
 
+  // targetPrice is mobile "Target"; keep exitPrice for backward compatibility
+  const resolvedTarget = data.targetPrice ?? data.exitPrice;
+  if (resolvedTarget == null) {
+    throw new AppError(
+      'Either exitPrice or targetPrice is required',
+      httpStatus.BAD_REQUEST
+    );
+  }
+
   // Update the trade with trade result
   const updated = await Copied_Trade_Model.findByIdAndUpdate(
     copiedTrade._id,
     {
       status: 'completed',
       entryPrice: data.entryPrice,
-      exitPrice: data.exitPrice,
+      stopLoss: data.stopLoss ?? null,
+      exitPrice: resolvedTarget,
+      targetPrice: resolvedTarget,
       lotSize: data.lotSize ?? null,
       resultPnl: data.resultPnl ?? null,
       pnlUnit: data.pnlUnit || 'usd',
@@ -230,7 +243,10 @@ const get_trade_history = async (
   }
 
   const trades = await Copied_Trade_Model.find(query)
-    .populate('signalId', 'symbol assetType signalType title entryPrice status')
+    .populate(
+      'signalId',
+      'symbol assetType signalType title entryPrice stopLoss takeProfit1 status'
+    )
     .populate('masterId', 'name userProfileUrl')
     .sort(sortQuery)
     .skip(skip)
@@ -291,7 +307,10 @@ const get_trade_by_id = async (userId: string, tradeId: string) => {
     _id: new Types.ObjectId(tradeId),
     userId: new Types.ObjectId(userId),
   })
-    .populate('signalId', 'symbol assetType signalType title entryPrice status authorId')
+    .populate(
+      'signalId',
+      'symbol assetType signalType title entryPrice stopLoss takeProfit1 status authorId'
+    )
     .populate('masterId', 'name userProfileUrl');
 
   if (!trade) {

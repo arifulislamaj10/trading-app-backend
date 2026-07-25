@@ -15,7 +15,9 @@ export interface ICopiedTrade {
 
   // Trade log (filled when user reports result)
   entryPrice: number | null;
+  stopLoss: number | null;
   exitPrice: number | null;
+  targetPrice: number | null;
   lotSize: number | null;
   resultPnl: number | null;
   pnlUnit: 'usd' | 'percent';
@@ -45,7 +47,9 @@ const copiedTradeSchema = new Schema<ICopiedTrade>(
 
     // Trade log
     entryPrice: { type: Number, default: null },
+    stopLoss: { type: Number, default: null },
     exitPrice: { type: Number, default: null },
+    targetPrice: { type: Number, default: null },
     lotSize: { type: Number, default: null },
     resultPnl: { type: Number, default: null },
     pnlUnit: { type: String, enum: ['usd', 'percent'], default: 'usd' },

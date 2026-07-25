@@ -164,7 +164,10 @@ const like_signal = catchAsync(async (req, res) => {
     success: true,
     statusCode: httpStatus.OK,
     message: result.message,
-    data: null,
+    data: {
+      isLiked: result.isLiked,
+      likeCount: result.likeCount,
+    },
   });
 });
 
@@ -179,7 +182,10 @@ const unlike_signal = catchAsync(async (req, res) => {
     success: true,
     statusCode: httpStatus.OK,
     message: result.message,
-    data: null,
+    data: {
+      isLiked: result.isLiked,
+      likeCount: result.likeCount,
+    },
   });
 });
 
@@ -194,7 +200,10 @@ const bookmark_signal = catchAsync(async (req, res) => {
     success: true,
     statusCode: httpStatus.OK,
     message: result.message,
-    data: null,
+    data: {
+      isBookmarked: result.isBookmarked,
+      bookmarkCount: result.bookmarkCount,
+    },
   });
 });
 
@@ -209,7 +218,10 @@ const unbookmark_signal = catchAsync(async (req, res) => {
     success: true,
     statusCode: httpStatus.OK,
     message: result.message,
-    data: null,
+    data: {
+      isBookmarked: result.isBookmarked,
+      bookmarkCount: result.bookmarkCount,
+    },
   });
 });
 
