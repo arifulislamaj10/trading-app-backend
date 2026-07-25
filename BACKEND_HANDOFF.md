@@ -3,6 +3,7 @@
 Date: 25 Jul 2026  
 Base URL: `/api/v1`  
 Auth: Bearer token (unless noted)
+.
 
 This file replaces older handoff docs (`BACKEND_TODO.md`, `backend-handoff-academy-tracking.md`, `BUG_TRACKER_FIXES.md`).
 
