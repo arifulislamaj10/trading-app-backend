@@ -1,7 +1,6 @@
 import catchAsync from '../../utils/catch_async';
 import manageResponse from '../../utils/manage_response';
 import { notification_services } from './notification.service';
-import { push_services } from './push.service';
 import httpStatus from 'http-status';
 
 const enrichNotification = (notification: any) => {
@@ -175,36 +174,6 @@ const get_unread_count = catchAsync(async (req, res) => {
   });
 });
 
-const register_device_token = catchAsync(async (req, res) => {
-  const accountId = req.user!.userId;
-  const { token, platform } = req.body;
-  const result = await push_services.register_device_token(
-    accountId,
-    token,
-    platform || 'android'
-  );
-
-  manageResponse(res, {
-    success: true,
-    statusCode: httpStatus.OK,
-    message: 'Device token registered',
-    data: result,
-  });
-});
-
-const unregister_device_token = catchAsync(async (req, res) => {
-  const accountId = req.user!.userId;
-  const { token } = req.body;
-  const result = await push_services.unregister_device_token(accountId, token);
-
-  manageResponse(res, {
-    success: true,
-    statusCode: httpStatus.OK,
-    message: result.message,
-    data: null,
-  });
-});
-
 export const notification_controllers = {
   get_my_notifications,
   get_notification_by_id,
@@ -213,7 +182,5 @@ export const notification_controllers = {
   update_notification,
   delete_notification,
   get_unread_count,
-  register_device_token,
-  unregister_device_token,
 };
 

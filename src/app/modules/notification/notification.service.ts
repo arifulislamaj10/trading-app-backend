@@ -9,7 +9,6 @@ import {
   BroadcastEventTime,
   resolveAudienceRecipients,
 } from './notification.audience';
-import { push_services } from './push.service';
 
 export type { BroadcastAudience, BroadcastEventTime, AudienceType } from './notification.audience';
 export { resolveAudienceRecipients, audienceFromLegacyTargetRole } from './notification.audience';
@@ -22,14 +21,6 @@ interface TCreateNotification {
   link?: string;
   data?: Record<string, unknown>;
 }
-
-const dispatchPush = (n: TCreateNotification) => {
-  void push_services.send_push_to_account(n.accountId, n.title, n.message, {
-    ...(n.data || {}),
-    type: n.type,
-    link: n.link || '',
-  });
-};
 
 /**
  * Create a single notification safely.
@@ -46,7 +37,6 @@ const create_notification = async (data: TCreateNotification) => {
       link: data.link || '',
       data: data.data || {},
     });
-    dispatchPush(data);
     return notification;
   } catch (error: any) {
     logger.error(
@@ -76,33 +66,11 @@ const create_many_notifications = async (notifications: TCreateNotification[]) =
 
     const created = await Notification_Model.insertMany(docs, { ordered: false });
 
-    // Fire-and-forget FCM; do not block the request on push delivery
-    void push_services.send_push_to_accounts(
-      notifications.map((n) => ({
-        accountId: n.accountId,
-        title: n.title,
-        message: n.message,
-        link: n.link,
-        type: n.type,
-        data: n.data,
-      }))
-    );
-
     return { createdCount: created.length };
   } catch (error: any) {
     // insertMany with ordered:false may partially succeed
     const inserted = Array.isArray(error?.insertedDocs) ? error.insertedDocs.length : 0;
     if (inserted > 0) {
-      void push_services.send_push_to_accounts(
-        notifications.slice(0, inserted).map((n) => ({
-          accountId: n.accountId,
-          title: n.title,
-          message: n.message,
-          link: n.link,
-          type: n.type,
-          data: n.data,
-        }))
-      );
       return { createdCount: inserted };
     }
     logger.error(

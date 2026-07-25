@@ -14,10 +14,12 @@ This file replaces older handoff docs (`BACKEND_TODO.md`, `backend-handoff-acade
 ### Academy (NEW)
 
 Public:
+
 - `GET /api/v1/academy/categories` — active only
 - `GET /api/v1/academy/videos?categoryId=` — active only
 
 Admin (soft-delete via `isActive: false`):
+
 - `POST|PATCH|DELETE /api/v1/admin/academy/categories[/:id]`
 - `POST|PATCH|DELETE /api/v1/admin/academy/videos[/:id]`
 - Admin GET lists include inactive items
@@ -43,23 +45,9 @@ Collections: `academy_categories`, `academy_videos`
 - `GET /api/v1/comments?signalId=`
 - `POST /api/v1/comments` `{ signalId, message }`
 
-### BUG-003 — FCM push
-
-In-app Mongo notifications remain the source of truth. After create, backend sends FCM when configured.
-
-- `POST /api/v1/notifications/device-token` `{ token, platform? }`
-- `DELETE /api/v1/notifications/device-token` `{ token }`
-- Env: `FIREBASE_SERVICE_ACCOUNT_PATH` **or** `FIREBASE_PROJECT_ID` + `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY`
-- Payload includes string `data.signalId`, `data.type`, `data.link`
-- Invalid tokens are pruned
-
-If Firebase env is unset, push is skipped (server still runs; in-app notifications work).
-
 ---
 
 ## Notes for ops
 
-1. Set Firebase credentials in production `.env` for real OS push.
-2. Mobile must register FCM token after login via `/notifications/device-token`.
-3. Academy content is admin-managed; public lists hide soft-deleted rows.
-4. `/training` remains the onboarding unlock flow — separate from Academy.
+1. Academy content is admin-managed; public lists hide soft-deleted rows.
+2. `/training` remains the onboarding unlock flow — separate from Academy.
