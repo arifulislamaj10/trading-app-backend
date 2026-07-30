@@ -2,6 +2,8 @@ import { model, Schema, Types } from 'mongoose';
 
 export type SignalType = 'long' | 'short';
 export type SignalStatus = 'draft' | 'scheduled' | 'active' | 'expired' | 'canceled' | 'published' | 'completed' | 'cancelled' | 'won' | 'lost';
+/** Final trade outcome for a Master signal (orthogonal to workflow/publish status). */
+export type SignalOutcome = 'pending' | 'hit_target' | 'stopped_out' | 'cancelled';
 export type AssetType = 'forex' | 'crypto' | 'stocks' | 'indices' | 'commodities' | 'futures' | 'options' | 'etfs';
 export type Timeframe = 'm1' | 'm5' | 'm15' | 'm30' | 'h1' | 'h4' | 'd1' | 'w1' | 'mn1';
 export type PublishType = 'instant' | 'scheduled';
@@ -61,6 +63,8 @@ export interface ISignal {
   isFeatured: boolean;
 
   // Performance tracking
+  /** pending until closed/canceled; then hit_target | stopped_out | cancelled */
+  outcome: SignalOutcome;
   resultPnl: number | null;
   pnlUnit: 'usd' | 'percent';
   closedAt: Date | null;
@@ -129,6 +133,11 @@ const signalSchema = new Schema<ISignal>(
     isPremium: { type: Boolean, default: false },
 
     // Performance tracking
+    outcome: {
+      type: String,
+      enum: ['pending', 'hit_target', 'stopped_out', 'cancelled'],
+      default: 'pending',
+    },
     resultPnl: { type: Number, default: null },
     pnlUnit: {
       type: String,
@@ -177,5 +186,6 @@ signalSchema.index({ status: 1, scheduledAt: 1 });
 signalSchema.index({ copierCount: -1 });
 signalSchema.index({ workflowStatus: 1, authorId: 1 });
 signalSchema.index({ authorId: 1, workflowStatus: 1, createdAt: -1 });
+signalSchema.index({ outcome: 1, status: 1 });
 
 export const Signal_Model = model<ISignal>('signal', signalSchema);

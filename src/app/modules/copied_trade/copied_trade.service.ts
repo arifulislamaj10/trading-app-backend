@@ -96,6 +96,7 @@ const copy_signal = async (userId: string, signalId: string) => {
     signalId: new Types.ObjectId(signalId),
     masterId: signal.authorId,
     status: 'pending',
+    masterOutcome: signal.outcome || 'pending',
   });
 
   // Increment signal copier count
@@ -245,7 +246,7 @@ const get_trade_history = async (
   const trades = await Copied_Trade_Model.find(query)
     .populate(
       'signalId',
-      'symbol assetType signalType title entryPrice stopLoss takeProfit1 status'
+      'symbol assetType signalType title entryPrice stopLoss takeProfit1 status outcome'
     )
     .populate('masterId', 'name userProfileUrl')
     .sort(sortQuery)
@@ -309,7 +310,7 @@ const get_trade_by_id = async (userId: string, tradeId: string) => {
   })
     .populate(
       'signalId',
-      'symbol assetType signalType title entryPrice stopLoss takeProfit1 status authorId'
+      'symbol assetType signalType title entryPrice stopLoss takeProfit1 status outcome authorId'
     )
     .populate('masterId', 'name userProfileUrl');
 

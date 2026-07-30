@@ -1,4 +1,5 @@
 import { model, Schema, Types } from 'mongoose';
+import type { SignalOutcome } from '../signal/signal.schema';
 
 export type CopiedTradeStatus = 'pending' | 'completed' | 'failed';
 export type TradeOutcome = 'win' | 'loss' | 'breakeven';
@@ -22,6 +23,8 @@ export interface ICopiedTrade {
   resultPnl: number | null;
   pnlUnit: 'usd' | 'percent';
   outcome: TradeOutcome | null;
+  /** Mirror of the Master signal's final outcome for stats / tracking */
+  masterOutcome: SignalOutcome;
   notes: string;
   screenshotUrl: string;
   externalPlatform: string;
@@ -54,6 +57,11 @@ const copiedTradeSchema = new Schema<ICopiedTrade>(
     resultPnl: { type: Number, default: null },
     pnlUnit: { type: String, enum: ['usd', 'percent'], default: 'usd' },
     outcome: { type: String, enum: ['win', 'loss', 'breakeven'], default: null },
+    masterOutcome: {
+      type: String,
+      enum: ['pending', 'hit_target', 'stopped_out', 'cancelled'],
+      default: 'pending',
+    },
     notes: { type: String, default: '' },
     screenshotUrl: { type: String, default: '' },
     externalPlatform: { type: String, default: '' },

@@ -1,6 +1,7 @@
 import catchAsync from '../../utils/catch_async';
 import manageResponse from '../../utils/manage_response';
 import { notification_services } from './notification.service';
+import { notificationRealtime } from './notification.realtime';
 import httpStatus from 'http-status';
 
 const enrichNotification = (notification: any) => {
@@ -174,6 +175,31 @@ const get_unread_count = catchAsync(async (req, res) => {
   });
 });
 
+/**
+ * SSE stream — clients receive notification.created events in near real-time.
+ * Uses Authorization Bearer (fetch-based EventSource) so native header auth works.
+ */
+const stream_notifications = catchAsync(async (req, res) => {
+  const accountId = req.user!.userId;
+
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  // Disable response timeout for long-lived stream
+  req.socket.setTimeout(0);
+  res.flushHeaders?.();
+
+  const unsubscribe = notificationRealtime.subscribe(accountId, res);
+
+  const onClose = () => {
+    unsubscribe();
+  };
+
+  req.on('close', onClose);
+  req.on('aborted', onClose);
+});
+
 export const notification_controllers = {
   get_my_notifications,
   get_notification_by_id,
@@ -182,5 +208,6 @@ export const notification_controllers = {
   update_notification,
   delete_notification,
   get_unread_count,
+  stream_notifications,
 };
 

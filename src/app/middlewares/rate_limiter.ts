@@ -10,6 +10,10 @@ export const apiLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again later',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  skip: (req) =>
+    // Long-lived SSE must not consume the general API budget
+    typeof req.originalUrl === 'string' &&
+    req.originalUrl.includes('/notifications/stream'),
 });
 
 /**

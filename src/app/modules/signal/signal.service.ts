@@ -1,6 +1,6 @@
 import { AppError } from '../../utils/app_error';
 import httpStatus from 'http-status';
-import { Signal_Model, SignalStatus, ISignal, WorkflowStatus } from './signal.schema';
+import { Signal_Model, SignalStatus, SignalOutcome, ISignal, WorkflowStatus } from './signal.schema';
 import { Master_Model } from '../master/master.schema';
 import { Account_Model } from '../auth/auth.schema';
 import { Copied_Trade_Model } from '../copied_trade/copied_trade.schema';
@@ -21,7 +21,31 @@ import {
 } from './signal.workflow.constants';
 import { incrementSignalUsageForAccount } from '../../middlewares/subscription_guard';
 import { SignalEngagement_Model } from './signal_engagement.schema';
-import { createSignalSchema } from './signal.validation';
+import { createSignalSchema, refineSignalPriceLevels } from './signal.validation';
+import { z } from 'zod';
+
+/**
+ * Enforce long/short price geometry using merged current + incoming values.
+ * Used on update so partial patches cannot introduce invalid levels.
+ */
+const assertValidPriceLevels = (levels: {
+  signalType: 'long' | 'short';
+  entryPrice: number;
+  stopLoss?: number | null;
+  takeProfit1?: number | null;
+  takeProfit2?: number | null;
+  takeProfit3?: number | null;
+}) => {
+  const issues: z.ZodIssue[] = [];
+  refineSignalPriceLevels(levels, {
+    addIssue: (issue: z.ZodIssueOptionalMessage) => issues.push(issue as z.ZodIssue),
+    path: [],
+  } as unknown as z.RefinementCtx);
+
+  if (issues.length > 0) {
+    throw new AppError(issues[0].message, httpStatus.BAD_REQUEST);
+  }
+};
 
 interface TCreateSignal {
   title: string;
@@ -44,6 +68,46 @@ interface TCreateSignal {
   scheduledAt?: string;
 }
 
+/**
+ * Resolve final signal outcome from explicit outcome, status aliases, or PnL sign.
+ * Preserves backward compatibility with won/lost/completed + resultPnl.
+ */
+const resolveCloseOutcome = (opts: {
+  explicitOutcome?: string | null;
+  statusAlias?: string | null;
+  resultPnl?: number | null;
+}): SignalOutcome => {
+  const explicit = opts.explicitOutcome;
+  if (explicit === 'hit_target' || explicit === 'stopped_out' || explicit === 'cancelled') {
+    return explicit;
+  }
+
+  const alias = opts.statusAlias;
+  if (alias === 'hit_target' || alias === 'won') return 'hit_target';
+  if (alias === 'stopped_out' || alias === 'lost') return 'stopped_out';
+  if (alias === 'cancelled' || alias === 'canceled') return 'cancelled';
+
+  if (opts.resultPnl != null) {
+    return opts.resultPnl >= 0 ? 'hit_target' : 'stopped_out';
+  }
+
+  return 'hit_target';
+};
+
+const syncCopiedTradesMasterOutcome = async (
+  signalId: string,
+  masterOutcome: SignalOutcome
+) => {
+  try {
+    await Copied_Trade_Model.updateMany(
+      { signalId: new Types.ObjectId(signalId) },
+      { $set: { masterOutcome } }
+    );
+  } catch (err: any) {
+    logger.warn(`Failed to sync masterOutcome for signal ${signalId}: ${err?.message}`);
+  }
+};
+
 const enrichSignal = (signal: ISignal & { _id?: Types.ObjectId; toObject?: () => ISignal }) => {
   const obj =
     typeof signal.toObject === 'function'
@@ -56,6 +120,15 @@ const enrichSignal = (signal: ISignal & { _id?: Types.ObjectId; toObject?: () =>
 
   return {
     ...obj,
+    outcome:
+      obj.outcome ||
+      (obj.status === 'completed'
+        ? obj.resultPnl != null && obj.resultPnl < 0
+          ? 'stopped_out'
+          : 'hit_target'
+        : obj.status === 'canceled' || obj.status === 'cancelled'
+          ? 'cancelled'
+          : 'pending'),
     takeProfits,
   };
 };
@@ -66,6 +139,7 @@ const enrichSignals = (signals: Array<ISignal & { toObject?: () => ISignal }>) =
 interface TCloseSignal {
   resultPnl?: number | null;
   closeNotes?: string;
+  outcome?: SignalOutcome;
 }
 
 interface TSignalFilters {
@@ -73,6 +147,7 @@ interface TSignalFilters {
   assetType?: string;
   signalType?: string;
   status?: string;
+  outcome?: string;
   isPremium?: boolean;
   authorId?: string;
   symbol?: string;
@@ -260,6 +335,7 @@ const create_signal = async (accountId: string, data: TCreateSignal) => {
       publishType,
       scheduledAt,
       publishedAt: null,
+      outcome: 'pending',
       stopLoss: data.stopLoss ?? null,
       takeProfit1: data.takeProfit1 ?? null,
       takeProfit2: data.takeProfit2 ?? null,
@@ -295,6 +371,7 @@ const create_signal = async (accountId: string, data: TCreateSignal) => {
     publishType,
     scheduledAt,
     publishedAt,
+    outcome: 'pending',
     stopLoss: data.stopLoss ?? null,
     takeProfit1: data.takeProfit1 ?? null,
     takeProfit2: data.takeProfit2 ?? null,
@@ -357,6 +434,7 @@ const create_signal_from_json = async (
     publishType,
     scheduledAt,
     publishedAt: null,
+    outcome: 'pending',
     stopLoss: signalData.stopLoss ?? null,
     takeProfit1: signalData.takeProfit1 ?? null,
     takeProfit2: signalData.takeProfit2 ?? null,
@@ -498,12 +576,13 @@ const notifyFollowersOfNewSignal = async (signalId: string, masterAccountId: str
 /**
  * Update a signal (Master: own signals, Admin: any signal)
  * If body contains `status: 'completed'` with `resultPnl`, triggers close logic
- * (updates master win/loss stats, tracks contribution).
+ * (updates master win/loss stats, tracks contribution, records outcome).
  */
 const update_signal = async (
   accountId: string,
   signalId: string,
-  data: Partial<TCreateSignal> & TCloseSignal & { status?: SignalStatus | 'won' | 'lost' }
+  data: Partial<TCreateSignal> &
+    TCloseSignal & { status?: SignalStatus | 'won' | 'lost' | 'hit_target' | 'stopped_out' | 'pending' }
 ) => {
   if (!Types.ObjectId.isValid(signalId)) {
     throw new AppError('Invalid signal ID', httpStatus.BAD_REQUEST);
@@ -524,17 +603,18 @@ const update_signal = async (
   // Stats/contributions belong to the signal author, even when an admin edits
   const authorAccountId = signal.authorId.toString();
 
-  // Normalize status for 'won' or 'lost' virtual statuses
-  let finalStatus = data.status;
+  // Normalize status for virtual statuses (won/lost/hit_target/stopped_out/…)
+  const requestedStatus = data.status;
+  let finalStatus = data.status as SignalStatus | undefined;
   let finalResultPnl = data.resultPnl;
 
-  if (finalStatus === ('won' as any)) {
+  if (finalStatus === ('won' as any) || finalStatus === ('hit_target' as any)) {
     finalStatus = 'completed';
     if (finalResultPnl === undefined || finalResultPnl === null) finalResultPnl = 1;
-  } else if (finalStatus === ('lost' as any)) {
+  } else if (finalStatus === ('lost' as any) || finalStatus === ('stopped_out' as any)) {
     finalStatus = 'completed';
     if (finalResultPnl === undefined || finalResultPnl === null) finalResultPnl = -1;
-  } else if (finalStatus === ('published' as any)) {
+  } else if (finalStatus === ('published' as any) || finalStatus === ('pending' as any)) {
     finalStatus = 'active';
   } else if (finalStatus === ('closed' as any)) {
     // Backward-compat: accept legacy 'closed' input and normalize to 'completed'
@@ -543,8 +623,12 @@ const update_signal = async (
     finalStatus = 'canceled';
   }
 
-  // Detect close action: status set to 'completed' with resultPnl provided
-  const isClosing = finalStatus === 'completed' && (finalResultPnl !== undefined && finalResultPnl !== null);
+  // Detect close action: status set to 'completed' with resultPnl provided,
+  // or explicit hit_target/stopped_out outcome while completing.
+  const explicitOutcome = data.outcome;
+  const isClosing =
+    finalStatus === 'completed' &&
+    (finalResultPnl !== undefined && finalResultPnl !== null);
 
   if (isClosing) {
     if (signal.status === 'completed') {
@@ -552,9 +636,15 @@ const update_signal = async (
     }
 
     const master = await Master_Model.findOne({ accountId: authorAccountId });
+    const outcome = resolveCloseOutcome({
+      explicitOutcome,
+      statusAlias: requestedStatus,
+      resultPnl: finalResultPnl,
+    });
 
     const updates: Record<string, unknown> = {
       status: 'completed',
+      outcome,
       closedAt: new Date(),
       resultPnl: finalResultPnl,
       pnlUnit: (data as any).pnlUnit || 'usd',
@@ -562,10 +652,12 @@ const update_signal = async (
     };
 
     const updated = await Signal_Model.findByIdAndUpdate(signalId, updates, { new: true });
+    await syncCopiedTradesMasterOutcome(signalId, outcome);
 
     // Update master win/loss stats
     if (master && finalResultPnl !== null && finalResultPnl !== undefined) {
-      const incField = finalResultPnl >= 0 ? 'winningSignals' : 'losingSignals';
+      const incField =
+        outcome === 'hit_target' || finalResultPnl >= 0 ? 'winningSignals' : 'losingSignals';
       await Master_Model.findOneAndUpdate(
         { accountId: authorAccountId },
         { $inc: { [incField]: 1 } }
@@ -583,11 +675,14 @@ const update_signal = async (
       }
 
       // Track contribution for closing signal
-      const activityType = finalResultPnl >= 0 ? 'close_signal_profit' : 'close_signal_loss';
+      const activityType =
+        outcome === 'hit_target' || finalResultPnl >= 0
+          ? 'close_signal_profit'
+          : 'close_signal_loss';
       contribution_services.track_contribution(authorAccountId, activityType, signalId);
     }
 
-    return updated;
+    return enrichSignal(updated!);
   }
 
   const editableStatuses = ['active', 'scheduled', 'draft'];
@@ -607,10 +702,41 @@ const update_signal = async (
   delete updatePayload.resultPnl;
   delete (updatePayload as any).pnlUnit;
   delete updatePayload.closeNotes;
+  delete updatePayload.outcome;
 
   if ('takeProfit1' in data) updatePayload.takeProfit1 = data.takeProfit1 ?? null;
   if ('takeProfit2' in data) updatePayload.takeProfit2 = data.takeProfit2 ?? null;
   if ('takeProfit3' in data) updatePayload.takeProfit3 = data.takeProfit3 ?? null;
+
+  const priceFieldsTouched =
+    data.signalType !== undefined ||
+    data.entryPrice !== undefined ||
+    'stopLoss' in data ||
+    'takeProfit1' in data ||
+    'takeProfit2' in data ||
+    'takeProfit3' in data;
+
+  if (priceFieldsTouched) {
+    assertValidPriceLevels({
+      signalType: (data.signalType ?? signal.signalType) as 'long' | 'short',
+      entryPrice: data.entryPrice ?? signal.entryPrice,
+      stopLoss: 'stopLoss' in data ? data.stopLoss ?? null : signal.stopLoss,
+      takeProfit1: 'takeProfit1' in data ? data.takeProfit1 ?? null : signal.takeProfit1,
+      takeProfit2: 'takeProfit2' in data ? data.takeProfit2 ?? null : signal.takeProfit2,
+      takeProfit3: 'takeProfit3' in data ? data.takeProfit3 ?? null : signal.takeProfit3,
+    });
+  }
+
+  const nextOutcome: SignalOutcome | undefined =
+    finalStatus === 'canceled'
+      ? 'cancelled'
+      : explicitOutcome === 'cancelled'
+        ? 'cancelled'
+        : undefined;
+
+  if (nextOutcome === 'cancelled') {
+    await syncCopiedTradesMasterOutcome(signalId, 'cancelled');
+  }
 
   const updated = await Signal_Model.findByIdAndUpdate(
     signalId,
@@ -619,6 +745,7 @@ const update_signal = async (
         ...updatePayload,
         status: finalStatus ?? signal.status,
         ...(finalResultPnl !== undefined ? { resultPnl: finalResultPnl } : {}),
+        ...(nextOutcome ? { outcome: nextOutcome } : {}),
       },
     },
     { new: true }
@@ -727,6 +854,7 @@ const reject_signal = async (
     {
       workflowStatus: 'rejected',
       status: 'canceled',
+      outcome: 'cancelled',
       mtReview: {
         confirmedAt: null,
         confirmedBy: new Types.ObjectId(accountId),
@@ -736,6 +864,8 @@ const reject_signal = async (
     },
     { new: true }
   );
+
+  await syncCopiedTradesMasterOutcome(signalId, 'cancelled');
 
   await safeAudit('signal_mt_rejected', accountId, 'signal', signalId, {
     rejectionReason,
@@ -845,16 +975,25 @@ const apply_filters = (query: any, filters: TSignalFilters) => {
     query.symbol = { $regex: `^${filters.symbol.trim()}$`, $options: 'i' };
   }
   
-  // Handle status filtering (support virtual statuses won/lost)
+  // Handle status filtering (support virtual statuses won/lost/hit_target/stopped_out/pending)
   if (filters.status) {
     if (filters.status === "all") {
       // No status filter applied
+    } else if (filters.status === 'hit_target') {
+      query.status = 'completed';
+      query.outcome = 'hit_target';
+    } else if (filters.status === 'stopped_out') {
+      query.status = 'completed';
+      query.outcome = 'stopped_out';
     } else if (filters.status === 'won') {
       query.status = 'completed';
       query.resultPnl = { $gte: 0 };
     } else if (filters.status === 'lost') {
       query.status = 'completed';
       query.resultPnl = { $lt: 0 };
+    } else if (filters.status === 'pending') {
+      query.status = { $in: ['active', 'scheduled', 'draft'] };
+      query.outcome = 'pending';
     } else if (filters.status === 'published') {
       query.status = 'active';
     } else if (filters.status === 'closed') {
@@ -865,6 +1004,10 @@ const apply_filters = (query: any, filters: TSignalFilters) => {
     } else {
       query.status = filters.status;
     }
+  }
+
+  if (filters.outcome) {
+    query.outcome = filters.outcome;
   }
 
   if (filters.isPremium !== undefined) query.isPremium = filters.isPremium;
@@ -1362,6 +1505,13 @@ export const SIGNAL_STATUS_DEFINITIONS = {
   canceled: 'Rejected or canceled before/during review.',
   expired: 'Soft-deleted signal (via delete action).',
   draft: 'Not yet published; used during AI workflow.',
+};
+
+export const SIGNAL_OUTCOME_DEFINITIONS = {
+  pending: 'Signal is open; no final result yet.',
+  hit_target: 'Price reached take-profit target(s).',
+  stopped_out: 'Price hit stop loss.',
+  cancelled: 'Signal was canceled before a result.',
 };
 
 export const signal_services = {

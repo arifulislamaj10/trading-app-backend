@@ -1,5 +1,80 @@
 import { z } from "zod";
 
+export const SIGNAL_OUTCOMES = [
+  "pending",
+  "hit_target",
+  "stopped_out",
+  "cancelled",
+] as const;
+
+export type SignalOutcomeInput = (typeof SIGNAL_OUTCOMES)[number];
+
+type PriceLevelFields = {
+  signalType?: "long" | "short";
+  entryPrice?: number;
+  stopLoss?: number | null;
+  takeProfit1?: number | null;
+  takeProfit2?: number | null;
+  takeProfit3?: number | null;
+};
+
+/**
+ * Long: SL < entry, each target > entry
+ * Short: SL > entry, each target < entry
+ * Skips null/undefined levels. Requires signalType + entryPrice to evaluate.
+ */
+export const refineSignalPriceLevels = (
+  data: PriceLevelFields,
+  ctx: z.RefinementCtx
+) => {
+  const { signalType, entryPrice, stopLoss } = data;
+  if (signalType == null || entryPrice == null) {
+    return;
+  }
+
+  if (stopLoss != null) {
+    if (signalType === "short" && !(stopLoss > entryPrice)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "For short signals, stop loss must be greater than entry price",
+        path: ["stopLoss"],
+      });
+    }
+    if (signalType === "long" && !(stopLoss < entryPrice)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "For long signals, stop loss must be less than entry price",
+        path: ["stopLoss"],
+      });
+    }
+  }
+
+  const targets: Array<{ value: number | null | undefined; path: string }> = [
+    { value: data.takeProfit1, path: "takeProfit1" },
+    { value: data.takeProfit2, path: "takeProfit2" },
+    { value: data.takeProfit3, path: "takeProfit3" },
+  ];
+
+  for (const target of targets) {
+    if (target.value == null) continue;
+
+    if (signalType === "short" && !(target.value < entryPrice)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "For short signals, target must be less than entry price",
+        path: [target.path],
+      });
+    }
+    if (signalType === "long" && !(target.value > entryPrice)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "For long signals, target must be greater than entry price",
+        path: [target.path],
+      });
+    }
+  }
+};
+
 // Base schema without publish validation (for updates)
 export const signalBaseFields = z.object({
   title: z.string().min(3).max(255),
@@ -38,6 +113,7 @@ export const signalBaseFields = z.object({
   resultPnl: z.coerce.number().nullable().optional(),
   pnlUnit: z.enum(["usd", "percent"]).default("usd").optional(),
   closeNotes: z.string().max(1000).optional(),
+  outcome: z.enum(SIGNAL_OUTCOMES).optional(),
   status: z
     .enum([
       "draft",
@@ -51,12 +127,17 @@ export const signalBaseFields = z.object({
       "cancelled",
       "won",
       "lost",
+      "hit_target",
+      "stopped_out",
+      "pending",
     ])
     .optional(),
 });
 
 // Create schema with validation for scheduled publish
 export const createSignalSchema = signalBaseFields.superRefine((data, ctx) => {
+  refineSignalPriceLevels(data, ctx);
+
   // If publishType is 'scheduled', scheduledAt is required and must be in the future
   if (data.publishType === "scheduled") {
     if (!data.scheduledAt) {
@@ -88,6 +169,8 @@ export const createSignalSchema = signalBaseFields.superRefine((data, ctx) => {
 export const updateSignalSchema = signalBaseFields
   .partial()
   .superRefine((data, ctx) => {
+    refineSignalPriceLevels(data, ctx);
+
     // If updating to scheduled publish, validate scheduledAt
     if (data.publishType === "scheduled" && data.scheduledAt) {
       const scheduledDate = new Date(data.scheduledAt);
@@ -110,6 +193,7 @@ export const updateSignalSchema = signalBaseFields
 export const closeSignalSchema = z.object({
   resultPnl: z.coerce.number().nullable().optional(),
   closeNotes: z.string().max(1000).optional(),
+  outcome: z.enum(["hit_target", "stopped_out"]).optional(),
 });
 
 export const signalQuerySchema = z.object({
@@ -144,8 +228,12 @@ export const signalQuerySchema = z.object({
       "cancelled",
       "won",
       "lost",
+      "hit_target",
+      "stopped_out",
+      "pending",
     ])
     .optional(),
+  outcome: z.enum(SIGNAL_OUTCOMES).optional(),
   isPremium: z.coerce.boolean().optional(),
   authorId: z.string().optional(),
   publishType: z.enum(["instant", "scheduled"]).optional(),

@@ -13,6 +13,9 @@ notificationRouter.get('/', notification_controllers.get_my_notifications);
 // GET /unread-count - Get unread notification count
 notificationRouter.get('/unread-count', notification_controllers.get_unread_count);
 
+// GET /stream - Near real-time SSE notification delivery
+notificationRouter.get('/stream', notification_controllers.stream_notifications);
+
 // PATCH /read-all - Mark all unread notifications as read
 notificationRouter.patch('/read-all', notification_controllers.mark_all_as_read);
 

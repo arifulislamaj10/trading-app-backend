@@ -149,6 +149,27 @@ export const notificationSwaggerDocs = {
     },
   },
 
+  "/api/v1/notifications/stream": {
+    get: {
+      tags: ["Notifications"],
+      summary: "Subscribe to near real-time notification events (SSE)",
+      description:
+        "Server-Sent Events stream. Emits `notification.created` when a new notification is persisted for the authenticated user. Clients should reconnect on disconnect. Prefer fetch + Authorization Bearer header (native EventSource cannot set auth headers).",
+      security: [{ bearerAuth: [] }],
+      responses: {
+        200: {
+          description: "text/event-stream",
+          content: {
+            "text/event-stream": {
+              schema: { type: "string", example: "event: notification.created\\ndata: {...}\\n\\n" },
+            },
+          },
+        },
+        401: { description: "Unauthorized" },
+      },
+    },
+  },
+
   "/api/v1/notifications/mark-all-read": {
     patch: {
       tags: ["Notifications"],

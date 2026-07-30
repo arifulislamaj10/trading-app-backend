@@ -82,6 +82,7 @@ const get_all_signals = catchAsync(async (req, res) => {
   if (req.query.assetType) filters.assetType = req.query.assetType;
   if (req.query.signalType) filters.signalType = req.query.signalType;
   if (req.query.status) filters.status = req.query.status;
+  if (req.query.outcome) filters.outcome = req.query.outcome as string;
   if (req.query.isPremium !== undefined)
     filters.isPremium = req.query.isPremium === "true";
   if (req.query.authorId) filters.authorId = req.query.authorId as string;

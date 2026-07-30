@@ -9,6 +9,7 @@ import {
   BroadcastEventTime,
   resolveAudienceRecipients,
 } from './notification.audience';
+import { notificationRealtime } from './notification.realtime';
 
 export type { BroadcastAudience, BroadcastEventTime, AudienceType } from './notification.audience';
 export { resolveAudienceRecipients, audienceFromLegacyTargetRole } from './notification.audience';
@@ -21,6 +22,39 @@ interface TCreateNotification {
   link?: string;
   data?: Record<string, unknown>;
 }
+
+const toRealtimePayload = (notification: {
+  _id: unknown;
+  accountId: unknown;
+  type: string;
+  title: string;
+  message: string;
+  link?: string;
+  data?: Record<string, unknown>;
+  isRead?: boolean;
+  createdAt?: Date;
+}) => ({
+  _id: String(notification._id),
+  accountId: String(notification.accountId),
+  type: notification.type,
+  title: notification.title,
+  message: notification.message,
+  link: notification.link || '',
+  data: notification.data || {},
+  isRead: notification.isRead ?? false,
+  createdAt: notification.createdAt,
+});
+
+const emitCreated = (accountId: string, notification: Parameters<typeof toRealtimePayload>[0]) => {
+  try {
+    notificationRealtime.publish(accountId, {
+      type: 'notification.created',
+      payload: { notification: toRealtimePayload(notification) },
+    });
+  } catch (err: any) {
+    logger.warn(`Failed to emit notification SSE for ${accountId}: ${err?.message}`);
+  }
+};
 
 /**
  * Create a single notification safely.
@@ -37,6 +71,7 @@ const create_notification = async (data: TCreateNotification) => {
       link: data.link || '',
       data: data.data || {},
     });
+    emitCreated(data.accountId, notification);
     return notification;
   } catch (error: any) {
     logger.error(
@@ -50,6 +85,7 @@ const create_notification = async (data: TCreateNotification) => {
  * Create multiple notifications in bulk safely.
  * Uses insertMany for efficiency, catches errors per-batch.
  * Returns the count of successfully created notifications.
+ * Emits SSE events immediately so clients update without polling.
  */
 const create_many_notifications = async (notifications: TCreateNotification[]) => {
   if (notifications.length === 0) return { createdCount: 0 };
@@ -66,11 +102,27 @@ const create_many_notifications = async (notifications: TCreateNotification[]) =
 
     const created = await Notification_Model.insertMany(docs, { ordered: false });
 
+    // One SSE event per recipient so badge/list refresh immediately (avoid N× fan-out noise)
+    const byAccount = new Map<string, (typeof created)[number]>();
+    for (const doc of created) {
+      const accountId = doc.accountId.toString();
+      if (!byAccount.has(accountId)) {
+        byAccount.set(accountId, doc);
+      }
+    }
+    for (const [accountId, doc] of byAccount) {
+      emitCreated(accountId, doc);
+    }
+
     return { createdCount: created.length };
   } catch (error: any) {
     // insertMany with ordered:false may partially succeed
-    const inserted = Array.isArray(error?.insertedDocs) ? error.insertedDocs.length : 0;
+    const insertedDocs = Array.isArray(error?.insertedDocs) ? error.insertedDocs : [];
+    const inserted = insertedDocs.length;
     if (inserted > 0) {
+      for (const doc of insertedDocs) {
+        emitCreated(doc.accountId.toString(), doc);
+      }
       return { createdCount: inserted };
     }
     logger.error(
