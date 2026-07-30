@@ -26,5 +26,11 @@ masterRouter.get('/:id', optionalAuth, master_controllers.get_single_master);
 // Admin-only routes
 masterRouter.patch('/featured/:id', auth('ADMIN'), master_controllers.toggle_featured);
 
+masterRouter.delete(
+  '/:id',
+  auth('ADMIN'),
+  RequestValidator(master_validations.delete_account_confirmation),
+  master_controllers.delete_master,
+);
+
 export default masterRouter;
-masterRouter.delete('/:id', auth('ADMIN'), master_controllers.delete_master);

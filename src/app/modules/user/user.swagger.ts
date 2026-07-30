@@ -217,7 +217,7 @@ export const userSwaggerDocs = {
         delete: {
             tags: ["Users"],
             summary: "Delete user",
-            description: "Soft delete a user by ID. This operation marks the user as deleted rather than permanently removing them. Requires ADMIN role.",
+            description: "Soft delete a user by ID. This operation marks the user as deleted rather than permanently removing them. Requires ADMIN role. Request body must include confirmation: \"DELETE\".",
             security: [{ bearerAuth: [] }],
             parameters: [
                 {
@@ -228,6 +228,25 @@ export const userSwaggerDocs = {
                     description: "User ID to delete",
                 },
             ],
+            requestBody: {
+                required: true,
+                content: {
+                    "application/json": {
+                        schema: {
+                            type: "object",
+                            required: ["confirmation"],
+                            properties: {
+                                confirmation: {
+                                    type: "string",
+                                    enum: ["DELETE"],
+                                    example: "DELETE",
+                                    description: "Must be the exact string DELETE to confirm deletion",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
             responses: {
                 200: {
                     description: "User deleted successfully",

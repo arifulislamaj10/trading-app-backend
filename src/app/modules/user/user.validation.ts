@@ -24,7 +24,15 @@ const sync_timezone = z.object({
     timezone: z.string().refine(isValidTimezone, "Invalid IANA timezone"),
 })
 
+/** Require exact typed confirmation before permanent/soft account deletion. */
+const delete_account_confirmation = z.object({
+    confirmation: z.literal("DELETE", {
+        errorMap: () => ({ message: "Type DELETE to confirm account deletion" }),
+    }),
+})
+
 export const user_validations = {
     update_user,
     sync_timezone,
+    delete_account_confirmation,
 }

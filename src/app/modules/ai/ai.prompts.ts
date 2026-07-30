@@ -8,7 +8,7 @@ Analyze the signal setup and respond ONLY with valid JSON matching this schema:
   "suggestedEdits": ["edit1"]
 }
 Rules:
-- "pass": clear setup, SL and at least one TP present, reasonable risk/reward for the asset class
+- "pass": clear setup, SL and at least one Target present, reasonable risk/reward for the asset class
 - "fail": missing critical levels, contradictory long/short vs prices, or dangerous setup
 - "review": ambiguous or API uncertainty; human Master Trader must decide
 Be concise and professional.`;

@@ -10,6 +10,7 @@ export type NotificationType =
   | 'system_announcement'
   | 'signal_copied'
   | 'trade_result_logged'
+  | 'signal_closed'
   | 'badge_earned'
   | 'training_completed'
   | 'trading_unlocked'
@@ -41,6 +42,7 @@ const notificationSchema = new Schema<INotification>(
         'system_announcement',
         'signal_copied',
         'trade_result_logged',
+        'signal_closed',
         'badge_earned',
         'training_completed',
         'trading_unlocked',

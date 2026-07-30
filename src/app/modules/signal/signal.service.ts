@@ -22,6 +22,12 @@ import {
 import { incrementSignalUsageForAccount } from '../../middlewares/subscription_guard';
 import { SignalEngagement_Model } from './signal_engagement.schema';
 import { createSignalSchema, refineSignalPriceLevels } from './signal.validation';
+import {
+  formatSignalOutcomeLabel,
+  hitTargetMatch,
+  resolveSignalOutcome,
+  stoppedOutMatch,
+} from './signal.outcome';
 import { z } from 'zod';
 
 /**
@@ -94,6 +100,11 @@ const resolveCloseOutcome = (opts: {
   return 'hit_target';
 };
 
+/**
+ * Sync Master Trader close outcome onto all copied trades.
+ * Updates masterOutcome for every copy. Does NOT force-complete user journal
+ * status so copiers can still log their own trade independently (loggedAt).
+ */
 const syncCopiedTradesMasterOutcome = async (
   signalId: string,
   masterOutcome: SignalOutcome
@@ -105,6 +116,51 @@ const syncCopiedTradesMasterOutcome = async (
     );
   } catch (err: any) {
     logger.warn(`Failed to sync masterOutcome for signal ${signalId}: ${err?.message}`);
+  }
+};
+
+/**
+ * Notify all users who copied a signal when the Master closes it.
+ * Copiers keep pending journal status until they log their own result.
+ */
+const notifyCopiersOfSignalClosed = async (
+  signalId: string,
+  outcome: SignalOutcome
+) => {
+  try {
+    const copies = await Copied_Trade_Model.find({
+      signalId: new Types.ObjectId(signalId),
+    }).select('userId');
+
+    if (!copies.length) {
+      return { notifiedCount: 0 };
+    }
+
+    const signal = await Signal_Model.findById(signalId).select('title symbol');
+    const signalLabel = signal?.title || signal?.symbol || 'a signal';
+    const outcomeLabel = formatSignalOutcomeLabel(outcome);
+
+    const notifications = copies.map((copy) => ({
+      accountId: copy.userId.toString(),
+      type: 'signal_closed' as const,
+      title: `Signal closed — ${outcomeLabel}`,
+      message: `Master closed "${signalLabel}" as ${outcomeLabel}. You can still log your own trade result.`,
+      link: `/signals/${signalId}`,
+      data: {
+        signalId,
+        outcome,
+        outcomeLabel,
+      },
+    }));
+
+    const result = await notification_services.create_many_notifications(notifications);
+    logger.info(
+      `📢 Notified ${result.createdCount}/${notifications.length} copiers about closed signal ${signalId} (${outcome})`
+    );
+    return result;
+  } catch (error: any) {
+    logger.error(`❌ Failed to notify copiers for closed signal ${signalId}: ${error.message}`);
+    return { notifiedCount: 0 };
   }
 };
 
@@ -120,15 +176,8 @@ const enrichSignal = (signal: ISignal & { _id?: Types.ObjectId; toObject?: () =>
 
   return {
     ...obj,
-    outcome:
-      obj.outcome ||
-      (obj.status === 'completed'
-        ? obj.resultPnl != null && obj.resultPnl < 0
-          ? 'stopped_out'
-          : 'hit_target'
-        : obj.status === 'canceled' || obj.status === 'cancelled'
-          ? 'cancelled'
-          : 'pending'),
+    // BUG-027: derive from status/PnL when stored outcome is missing or still pending
+    outcome: resolveSignalOutcome(obj),
     takeProfits,
   };
 };
@@ -623,12 +672,20 @@ const update_signal = async (
     finalStatus = 'canceled';
   }
 
-  // Detect close action: status set to 'completed' with resultPnl provided,
-  // or explicit hit_target/stopped_out outcome while completing.
+  // Detect close action:
+  // - status completed/won/lost/hit_target/stopped_out with resultPnl, OR
+  // - status completed with explicit hit_target/stopped_out outcome (resultPnl optional)
   const explicitOutcome = data.outcome;
+  const hasResultPnl = finalResultPnl !== undefined && finalResultPnl !== null;
+  const hasCloseableOutcome =
+    explicitOutcome === 'hit_target' ||
+    explicitOutcome === 'stopped_out' ||
+    requestedStatus === 'hit_target' ||
+    requestedStatus === 'stopped_out' ||
+    requestedStatus === 'won' ||
+    requestedStatus === 'lost';
   const isClosing =
-    finalStatus === 'completed' &&
-    (finalResultPnl !== undefined && finalResultPnl !== null);
+    finalStatus === 'completed' && (hasResultPnl || hasCloseableOutcome);
 
   if (isClosing) {
     if (signal.status === 'completed') {
@@ -642,6 +699,11 @@ const update_signal = async (
       resultPnl: finalResultPnl,
     });
 
+    // Default PnL sign from outcome when client closes via outcome/status alias only
+    if (!hasResultPnl) {
+      finalResultPnl = outcome === 'stopped_out' ? -1 : 1;
+    }
+
     const updates: Record<string, unknown> = {
       status: 'completed',
       outcome,
@@ -653,11 +715,11 @@ const update_signal = async (
 
     const updated = await Signal_Model.findByIdAndUpdate(signalId, updates, { new: true });
     await syncCopiedTradesMasterOutcome(signalId, outcome);
+    await notifyCopiersOfSignalClosed(signalId, outcome);
 
-    // Update master win/loss stats
-    if (master && finalResultPnl !== null && finalResultPnl !== undefined) {
-      const incField =
-        outcome === 'hit_target' || finalResultPnl >= 0 ? 'winningSignals' : 'losingSignals';
+    // Update master win/loss stats from resolved outcome only (not PnL OR)
+    if (master && (outcome === 'hit_target' || outcome === 'stopped_out')) {
+      const incField = outcome === 'hit_target' ? 'winningSignals' : 'losingSignals';
       await Master_Model.findOneAndUpdate(
         { accountId: authorAccountId },
         { $inc: { [incField]: 1 } }
@@ -676,9 +738,7 @@ const update_signal = async (
 
       // Track contribution for closing signal
       const activityType =
-        outcome === 'hit_target' || finalResultPnl >= 0
-          ? 'close_signal_profit'
-          : 'close_signal_loss';
+        outcome === 'hit_target' ? 'close_signal_profit' : 'close_signal_loss';
       contribution_services.track_contribution(authorAccountId, activityType, signalId);
     }
 
@@ -736,6 +796,7 @@ const update_signal = async (
 
   if (nextOutcome === 'cancelled') {
     await syncCopiedTradesMasterOutcome(signalId, 'cancelled');
+    await notifyCopiersOfSignalClosed(signalId, 'cancelled');
   }
 
   const updated = await Signal_Model.findByIdAndUpdate(
@@ -866,6 +927,7 @@ const reject_signal = async (
   );
 
   await syncCopiedTradesMasterOutcome(signalId, 'cancelled');
+  await notifyCopiersOfSignalClosed(signalId, 'cancelled');
 
   await safeAudit('signal_mt_rejected', accountId, 'signal', signalId, {
     rejectionReason,
@@ -979,18 +1041,29 @@ const apply_filters = (query: any, filters: TSignalFilters) => {
   if (filters.status) {
     if (filters.status === "all") {
       // No status filter applied
-    } else if (filters.status === 'hit_target') {
-      query.status = 'completed';
-      query.outcome = 'hit_target';
-    } else if (filters.status === 'stopped_out') {
-      query.status = 'completed';
-      query.outcome = 'stopped_out';
-    } else if (filters.status === 'won') {
-      query.status = 'completed';
-      query.resultPnl = { $gte: 0 };
-    } else if (filters.status === 'lost') {
-      query.status = 'completed';
-      query.resultPnl = { $lt: 0 };
+    } else if (filters.status === 'hit_target' || filters.status === 'won') {
+      // Prefer explicit outcome; include legacy completed/won rows still pending
+      const match = hitTargetMatch();
+      if (query.$or || query.$and) {
+        query.$and = [...((query.$and as unknown[]) || []), match];
+        if (query.$or) {
+          query.$and.unshift({ $or: query.$or });
+          delete query.$or;
+        }
+      } else {
+        Object.assign(query, match);
+      }
+    } else if (filters.status === 'stopped_out' || filters.status === 'lost') {
+      const match = stoppedOutMatch();
+      if (query.$or || query.$and) {
+        query.$and = [...((query.$and as unknown[]) || []), match];
+        if (query.$or) {
+          query.$and.unshift({ $or: query.$or });
+          delete query.$or;
+        }
+      } else {
+        Object.assign(query, match);
+      }
     } else if (filters.status === 'pending') {
       query.status = { $in: ['active', 'scheduled', 'draft'] };
       query.outcome = 'pending';
@@ -1007,7 +1080,47 @@ const apply_filters = (query: any, filters: TSignalFilters) => {
   }
 
   if (filters.outcome) {
-    query.outcome = filters.outcome;
+    if (filters.outcome === 'hit_target') {
+      const match = hitTargetMatch();
+      if (query.$or || query.$and) {
+        query.$and = [...((query.$and as unknown[]) || []), match];
+        if (query.$or) {
+          query.$and.unshift({ $or: query.$or });
+          delete query.$or;
+        }
+      } else {
+        Object.assign(query, match);
+      }
+    } else if (filters.outcome === 'stopped_out') {
+      const match = stoppedOutMatch();
+      if (query.$or || query.$and) {
+        query.$and = [...((query.$and as unknown[]) || []), match];
+        if (query.$or) {
+          query.$and.unshift({ $or: query.$or });
+          delete query.$or;
+        }
+      } else {
+        Object.assign(query, match);
+      }
+    } else if (filters.outcome === 'cancelled') {
+      const match = {
+        $or: [
+          { outcome: 'cancelled' },
+          { status: { $in: ['canceled', 'cancelled'] } },
+        ],
+      };
+      if (query.$or || query.$and) {
+        query.$and = [...((query.$and as unknown[]) || []), match];
+        if (query.$or) {
+          query.$and.unshift({ $or: query.$or });
+          delete query.$or;
+        }
+      } else {
+        Object.assign(query, match);
+      }
+    } else {
+      query.outcome = filters.outcome;
+    }
   }
 
   if (filters.isPremium !== undefined) query.isPremium = filters.isPremium;
@@ -1509,7 +1622,7 @@ export const SIGNAL_STATUS_DEFINITIONS = {
 
 export const SIGNAL_OUTCOME_DEFINITIONS = {
   pending: 'Signal is open; no final result yet.',
-  hit_target: 'Price reached take-profit target(s).',
+  hit_target: 'Price reached target(s).',
   stopped_out: 'Price hit stop loss.',
   cancelled: 'Signal was canceled before a result.',
 };

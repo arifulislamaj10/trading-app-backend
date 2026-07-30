@@ -6,6 +6,14 @@ const masterProfileSchema = z.object({
   yearsOfExperience: z.coerce.number().min(0).max(50).optional(),
 });
 
+/** Require exact typed confirmation before permanent master/account deletion. */
+const delete_account_confirmation = z.object({
+  confirmation: z.literal('DELETE', {
+    errorMap: () => ({ message: 'Type DELETE to confirm account deletion' }),
+  }),
+});
+
 export const master_validations = {
   masterProfileSchema,
+  delete_account_confirmation,
 };

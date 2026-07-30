@@ -18,11 +18,34 @@ interface TLogTrade {
   lotSize?: number;
   resultPnl?: number;
   pnlUnit?: 'usd' | 'percent';
-  outcome: TradeOutcome;
+  outcome: TradeOutcome | 'hit_target' | 'stopped_out' | 'won' | 'lost';
   notes?: string;
   screenshotUrl?: string;
   externalPlatform?: string;
 }
+
+/** Normalize user journal outcome aliases to stored win/loss/breakeven values. */
+const normalizeTradeOutcome = (
+  outcome: TradeOutcome | 'hit_target' | 'stopped_out' | 'won' | 'lost'
+): TradeOutcome => {
+  if (outcome === 'hit_target' || outcome === 'won') return 'win';
+  if (outcome === 'stopped_out' || outcome === 'lost') return 'loss';
+  return outcome;
+};
+
+/** Display labels for user journal outcomes (Hit Target / Stopped Out terminology). */
+const formatTradeOutcomeLabel = (outcome: TradeOutcome): string => {
+  switch (outcome) {
+    case 'win':
+      return 'Hit Target';
+    case 'loss':
+      return 'Stopped Out';
+    case 'breakeven':
+      return 'Breakeven';
+    default:
+      return String(outcome);
+  }
+};
 
 interface TTradeFilters {
   status?: string;
@@ -138,7 +161,8 @@ const log_trade = async (userId: string, data: TLogTrade) => {
     throw new AppError('No copied trade found. Please click "Copy Trade" first.', httpStatus.NOT_FOUND);
   }
 
-  if (copiedTrade.status === 'completed') {
+  // User has already personally logged this trade (independent of masterOutcome sync)
+  if (copiedTrade.loggedAt || copiedTrade.status === 'completed') {
     throw new AppError('This trade has already been logged', httpStatus.CONFLICT);
   }
 
@@ -169,6 +193,8 @@ const log_trade = async (userId: string, data: TLogTrade) => {
     );
   }
 
+  const normalizedOutcome = normalizeTradeOutcome(data.outcome);
+
   // Update the trade with trade result
   const updated = await Copied_Trade_Model.findByIdAndUpdate(
     copiedTrade._id,
@@ -181,7 +207,7 @@ const log_trade = async (userId: string, data: TLogTrade) => {
       lotSize: data.lotSize ?? null,
       resultPnl: data.resultPnl ?? null,
       pnlUnit: data.pnlUnit || 'usd',
-      outcome: data.outcome,
+      outcome: normalizedOutcome,
       notes: data.notes ?? '',
       screenshotUrl: data.screenshotUrl ?? '',
       externalPlatform: data.externalPlatform ?? '',
@@ -193,16 +219,19 @@ const log_trade = async (userId: string, data: TLogTrade) => {
   // Notify the master (signal owner) about the trade result — owner only
   const signal = await Signal_Model.findById(data.signalId).select('title symbol');
   const signalLabel = signal?.title || signal?.symbol || 'your signal';
-  const outcomeEmoji = data.outcome === 'win' ? '🟢' : data.outcome === 'loss' ? '🔴' : '🟡';
+  const outcomeLabel = formatTradeOutcomeLabel(normalizedOutcome);
+  const outcomeEmoji =
+    normalizedOutcome === 'win' ? '🟢' : normalizedOutcome === 'loss' ? '🔴' : '🟡';
   await notification_services.create_notification({
     accountId: copiedTrade.masterId.toString(),
     type: 'trade_result_logged',
     title: `Trade Result ${outcomeEmoji}`,
-    message: `A copier logged a ${data.outcome} on your signal: ${signalLabel}`,
+    message: `A copier logged ${outcomeLabel} on your signal: ${signalLabel}`,
     link: `/signals/${data.signalId}`,
     data: {
       signalId: data.signalId,
-      outcome: data.outcome,
+      outcome: normalizedOutcome,
+      outcomeLabel,
       resultPnl: data.resultPnl,
     },
   });
@@ -225,7 +254,15 @@ const get_trade_history = async (
   const query: Record<string, unknown> = { userId: new Types.ObjectId(userId) };
 
   if (filters.status) query.status = filters.status;
-  if (filters.outcome) query.outcome = filters.outcome;
+  if (filters.outcome) {
+    const raw = filters.outcome;
+    query.outcome =
+      raw === 'hit_target' || raw === 'won'
+        ? 'win'
+        : raw === 'stopped_out' || raw === 'lost'
+          ? 'loss'
+          : raw;
+  }
   if (filters.masterId) query.masterId = new Types.ObjectId(filters.masterId);
 
   if (filters.startDate || filters.endDate) {

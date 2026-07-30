@@ -46,7 +46,7 @@ export const copiedTradeSwaggerDocs = {
                 resultPnl: { type: 'number', example: 120 },
                 pnlUnit: { type: 'string', enum: ['usd', 'percent'] },
                 outcome: { type: 'string', enum: ['win', 'loss', 'breakeven'] },
-                notes: { type: 'string', example: 'Followed master\'s TP2 target' },
+                notes: { type: 'string', example: 'Followed master\'s Target 2' },
                 screenshotUrl: { type: 'string', example: 'https://example.com/screenshot.png' },
                 externalPlatform: { type: 'string', example: 'bybit' },
               },

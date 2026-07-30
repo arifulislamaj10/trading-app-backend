@@ -139,7 +139,7 @@ export const signalSwaggerDocs = {
     patch: {
       tags: ["Signals"],
       summary: "Update or close a signal",
-      description: "Update your own signal. To close a signal, set `status: 'completed'` and provide `resultPnl`. This triggers master win/loss stats update.",
+      description: "Update your own signal. To close a signal, set status to hit_target/stopped_out (or legacy won/lost), or status completed with outcome/resultPnl. Closing syncs masterOutcome to copied trades and notifies copiers.",
       security: [{ bearerAuth: [] }],
       parameters: [
         { name: "id", in: "path", required: true, schema: { type: "string" } },
@@ -157,8 +157,26 @@ export const signalSwaggerDocs = {
                 takeProfit1: { type: "number", example: 1.091 },
                 tags: { type: "array", items: { type: "string" } },
                 videoUrl: { type: "string", format: "uri" },
-                status: { type: "string", enum: ["completed"], example: "completed", description: "Set to 'completed' to close the signal. Must include resultPnl." },                resultPnl: { type: "number", example: 2.5, description: "Required when closing. Profit/loss percentage. Positive = win." },
-                closeNotes: { type: "string", example: "Hit TP2 target" },
+                status: {
+                  type: "string",
+                  enum: ["completed", "won", "lost", "hit_target", "stopped_out"],
+                  example: "hit_target",
+                  description:
+                    "Close aliases: hit_target/stopped_out (preferred), won/lost (legacy), or completed with outcome/resultPnl.",
+                },
+                outcome: {
+                  type: "string",
+                  enum: ["hit_target", "stopped_out", "cancelled"],
+                  example: "hit_target",
+                  description: "Final signal result. Preferred over won/lost status aliases.",
+                },
+                resultPnl: {
+                  type: "number",
+                  example: 2.5,
+                  description:
+                    "Optional when closing with hit_target/stopped_out. Positive ≈ Hit Target; negative ≈ Stopped Out.",
+                },
+                closeNotes: { type: "string", example: "Hit Target 2" },
               },
             },
           },

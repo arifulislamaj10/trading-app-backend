@@ -31,7 +31,7 @@ export const TRAINING_LESSONS: TrainingLesson[] = [
   {
     lessonId: 'reading_signals',
     title: 'Reading Trading Signals',
-    description: 'Entry, take profit, stop loss, and signal types explained.',
+    description: 'Entry, target, stop loss, and signal types explained.',
     order: 4,
     durationMinutes: 7,
   },

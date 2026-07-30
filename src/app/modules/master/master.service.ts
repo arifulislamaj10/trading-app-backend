@@ -4,6 +4,7 @@ import httpStatus from 'http-status';
 import { AppError } from '../../utils/app_error';
 import { Master_Model } from './master.schema';
 import { Signal_Model } from '../signal/signal.schema';
+import { hitTargetAggCond, hitTargetMatch, stoppedOutMatch } from '../signal/signal.outcome';
 import { Follow_Model } from '../follow/follow.schema';
 import { Account_Model } from '../auth/auth.schema';
 import { Copied_Trade_Model } from '../copied_trade/copied_trade.schema';
@@ -251,14 +252,12 @@ const get_master_stats = async (accountId: string) => {
 
   const winningSignals = await Signal_Model.countDocuments({
     authorId,
-    status: { $in: ['completed', 'won', 'lost'] },
-    resultPnl: { $gt: 0 }
+    ...hitTargetMatch(),
   });
 
   const losingSignals = await Signal_Model.countDocuments({
     authorId,
-    status: { $in: ['completed', 'won', 'lost'] },
-    resultPnl: { $lt: 0 }
+    ...stoppedOutMatch(),
   });
 
   // Calculate win rate
@@ -340,6 +339,10 @@ const get_master_stats = async (accountId: string) => {
         'Signals currently open and visible to followers (status: active or published).',
       completedSignals:
         'Signals finished by you with a result logged (status: completed/won/lost).',
+      winningSignals:
+        'Closed signals resolved as Hit Target (explicit outcome, or legacy completed/won + non-negative PnL).',
+      losingSignals:
+        'Closed signals resolved as Stopped Out (explicit outcome, or legacy completed/lost + negative PnL).',
       copiedTradesCount:
         'Total number of users who copied your signals into their trade journal.',
       copiedTradesCompleted:
@@ -375,7 +378,7 @@ const get_master_analytics = async (accountId: string) => {
         },
         totalPnL: { $sum: '$resultPnl' },
         signalCount: { $sum: 1 },
-        wins: { $sum: { $cond: [{ $gt: ['$resultPnl', 0] }, 1, 0] } },
+        wins: { $sum: hitTargetAggCond() },
       },
     },
     { $sort: { '_id.year': 1, '_id.month': 1 } },
@@ -433,7 +436,7 @@ const get_master_analytics = async (accountId: string) => {
   const recentSignals = await Signal_Model.find({ authorId })
     .sort({ createdAt: -1 })
     .limit(5)
-    .select('symbol assetType signalType resultPnl status createdAt');
+    .select('symbol assetType signalType resultPnl status outcome createdAt');
 
   return {
     overview: basicStats,

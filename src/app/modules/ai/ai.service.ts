@@ -79,7 +79,7 @@ const assist_master_signal = async (
     summary: 'AI assistant unavailable.',
     riskAnalysis: 'Please review risk manually.',
     riskRewardNotes: '',
-    suggestions: ['Verify stop loss and take profit levels before publishing.'],
+    suggestions: ['Verify stop loss and target levels before publishing.'],
     model: 'fallback',
   };
 
