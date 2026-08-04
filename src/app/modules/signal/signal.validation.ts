@@ -18,32 +18,38 @@ type PriceLevelFields = {
   takeProfit3?: number | null;
 };
 
+/** True when value is a real positive price (skips null/undefined/NaN/<=0 placeholders). */
+export const isProvidedPrice = (value: number | null | undefined): value is number =>
+  value != null && Number.isFinite(value) && value > 0;
+
 /**
  * Long: SL < entry, each target > entry
  * Short: SL > entry, each target < entry
- * Skips null/undefined levels. Requires signalType + entryPrice to evaluate.
+ * Skips null/undefined/<=0 placeholders. Requires signalType + entryPrice to evaluate.
  */
 export const refineSignalPriceLevels = (
   data: PriceLevelFields,
   ctx: z.RefinementCtx
 ) => {
   const { signalType, entryPrice, stopLoss } = data;
-  if (signalType == null || entryPrice == null) {
+  if (signalType == null || !isProvidedPrice(entryPrice)) {
     return;
   }
 
-  if (stopLoss != null) {
+  if (isProvidedPrice(stopLoss)) {
     if (signalType === "short" && !(stopLoss > entryPrice)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "For short signals, stop loss must be greater than entry price",
+        message:
+          "For Short signals, Stop Loss must be greater than the Entry Price.",
         path: ["stopLoss"],
       });
     }
     if (signalType === "long" && !(stopLoss < entryPrice)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "For long signals, stop loss must be less than entry price",
+        message:
+          "For Long signals, Stop Loss must be less than the Entry Price.",
         path: ["stopLoss"],
       });
     }
@@ -56,19 +62,21 @@ export const refineSignalPriceLevels = (
   ];
 
   for (const target of targets) {
-    if (target.value == null) continue;
+    if (!isProvidedPrice(target.value)) continue;
 
     if (signalType === "short" && !(target.value < entryPrice)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "For short signals, target must be less than entry price",
+        message:
+          "For Short signals, Target prices must be less than the Entry Price.",
         path: [target.path],
       });
     }
     if (signalType === "long" && !(target.value > entryPrice)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "For long signals, target must be greater than entry price",
+        message:
+          "For Long signals, Target prices must be greater than the Entry Price.",
         path: [target.path],
       });
     }

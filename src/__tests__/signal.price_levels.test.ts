@@ -1,5 +1,6 @@
 import {
   createSignalSchema,
+  isProvidedPrice,
   refineSignalPriceLevels,
   SIGNAL_OUTCOMES,
 } from '../app/modules/signal/signal.validation';
@@ -14,6 +15,40 @@ describe('signal price level validation (BUG-001–004)', () => {
     entryPrice: 1.1,
     publishType: 'instant' as const,
   };
+
+  const collectRefineIssues = (data: {
+    signalType?: 'long' | 'short';
+    entryPrice?: number;
+    stopLoss?: number | null;
+    takeProfit1?: number | null;
+    takeProfit2?: number | null;
+    takeProfit3?: number | null;
+  }) => {
+    const issues: z.ZodIssue[] = [];
+    const ctx = {
+      addIssue: (issue: z.ZodIssue) => {
+        issues.push(issue);
+      },
+      path: [] as (string | number)[],
+    } as unknown as z.RefinementCtx;
+    refineSignalPriceLevels(data, ctx);
+    return issues;
+  };
+
+  describe('isProvidedPrice', () => {
+    it('rejects null, undefined, NaN, and <= 0 placeholders', () => {
+      expect(isProvidedPrice(null)).toBe(false);
+      expect(isProvidedPrice(undefined)).toBe(false);
+      expect(isProvidedPrice(NaN)).toBe(false);
+      expect(isProvidedPrice(0)).toBe(false);
+      expect(isProvidedPrice(-1)).toBe(false);
+    });
+
+    it('accepts positive finite prices', () => {
+      expect(isProvidedPrice(0.01)).toBe(true);
+      expect(isProvidedPrice(1.1)).toBe(true);
+    });
+  });
 
   describe('short signals', () => {
     it('rejects stop loss <= entry price', async () => {
@@ -139,24 +174,54 @@ describe('signal price level validation (BUG-001–004)', () => {
     ).resolves.toMatchObject({ signalType: 'long', entryPrice: 1.1 });
   });
 
-  it('refineSignalPriceLevels adds issues with expected messages', () => {
-    const issues: z.ZodIssue[] = [];
-    const ctx = {
-      addIssue: (issue: z.ZodIssue) => {
-        issues.push(issue);
-      },
-      path: [] as (string | number)[],
-    } as unknown as z.RefinementCtx;
+  it('refine skips placeholder stopLoss 0 and omitted targets (no geometry issues)', () => {
+    const issues = collectRefineIssues({
+      signalType: 'short',
+      entryPrice: 100,
+      stopLoss: 0,
+      takeProfit1: null,
+    });
+    expect(issues).toEqual([]);
+  });
 
-    refineSignalPriceLevels(
-      { signalType: 'short', entryPrice: 100, stopLoss: 90, takeProfit1: 110 },
-      ctx
-    );
+  it('refine skips when entryPrice is a placeholder', () => {
+    const issues = collectRefineIssues({
+      signalType: 'long',
+      entryPrice: 0,
+      stopLoss: 90,
+      takeProfit1: 110,
+    });
+    expect(issues).toEqual([]);
+  });
+
+  it('refineSignalPriceLevels adds issues with expected messages', () => {
+    const issues = collectRefineIssues({
+      signalType: 'short',
+      entryPrice: 100,
+      stopLoss: 90,
+      takeProfit1: 110,
+    });
 
     expect(issues.map((i) => i.message)).toEqual(
       expect.arrayContaining([
-        'For short signals, stop loss must be greater than entry price',
-        'For short signals, target must be less than entry price',
+        'For Short signals, Stop Loss must be greater than the Entry Price.',
+        'For Short signals, Target prices must be less than the Entry Price.',
+      ])
+    );
+  });
+
+  it('refineSignalPriceLevels long messages match BUG-003–004', () => {
+    const issues = collectRefineIssues({
+      signalType: 'long',
+      entryPrice: 100,
+      stopLoss: 110,
+      takeProfit1: 90,
+    });
+
+    expect(issues.map((i) => i.message)).toEqual(
+      expect.arrayContaining([
+        'For Long signals, Stop Loss must be less than the Entry Price.',
+        'For Long signals, Target prices must be greater than the Entry Price.',
       ])
     );
   });
