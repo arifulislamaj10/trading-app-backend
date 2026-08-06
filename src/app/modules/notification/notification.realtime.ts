@@ -1,8 +1,12 @@
-import { Response } from 'express';
-import logger from '../../configs/logger';
+import { Response } from "express";
+import logger from "../../configs/logger";
 
 export type NotificationRealtimeEvent = {
-  type: 'notification.created' | 'notification.updated' | 'connected' | 'heartbeat';
+  type:
+    | "notification.created"
+    | "notification.updated"
+    | "connected"
+    | "heartbeat";
   payload?: Record<string, unknown>;
 };
 
@@ -30,7 +34,7 @@ class NotificationRealtimeHub {
     set.add(client);
     this.ensureHeartbeat();
 
-    this.write(client, { type: 'connected', payload: { accountId } });
+    this.write(client, { type: "connected", payload: { accountId } });
 
     return () => {
       const current = this.clients.get(accountId);
@@ -86,7 +90,7 @@ class NotificationRealtimeHub {
     this.heartbeatTimer = setInterval(() => {
       for (const [accountId, set] of this.clients) {
         for (const client of [...set]) {
-          const ok = this.write(client, { type: 'heartbeat' });
+          const ok = this.write(client, { type: "heartbeat" });
           if (!ok) set.delete(client);
         }
         if (set.size === 0) this.clients.delete(accountId);

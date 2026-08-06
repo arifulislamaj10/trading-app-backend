@@ -6,7 +6,9 @@ import catch_async from "../../utils/catch_async";
 
 const get_referral_stats = catch_async(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
-  const result = await referral_services.get_referral_stats_from_db(userId as any);
+  const result = await referral_services.get_referral_stats_from_db(
+    userId as any,
+  );
 
   manageResponse(res, {
     statusCode: httpStatus.OK,

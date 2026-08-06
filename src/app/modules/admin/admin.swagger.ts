@@ -3,7 +3,8 @@ export const adminSwaggerDocs = {
     get: {
       tags: ["Admin"],
       summary: "Get platform analytics",
-      description: "Admin only. Retrieve comprehensive platform statistics including users, masters, subscriptions, signals, revenue, and recent activity.",
+      description:
+        "Admin only. Retrieve comprehensive platform statistics including users, masters, subscriptions, signals, revenue, and recent activity.",
       security: [{ bearerAuth: [] }],
       responses: {
         200: {
@@ -14,7 +15,10 @@ export const adminSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Platform analytics retrieved" },
+                  message: {
+                    type: "string",
+                    example: "Platform analytics retrieved",
+                  },
                   data: {
                     type: "object",
                     properties: {
@@ -64,7 +68,11 @@ export const adminSwaggerDocs = {
                       revenue: {
                         type: "object",
                         properties: {
-                          total: { type: "number", example: 25890, description: "Total revenue in dollars" },
+                          total: {
+                            type: "number",
+                            example: 25890,
+                            description: "Total revenue in dollars",
+                          },
                           transactionCount: { type: "integer", example: 1456 },
                         },
                       },
@@ -73,7 +81,11 @@ export const adminSwaggerDocs = {
                         properties: {
                           total: { type: "integer", example: 450 },
                           active: { type: "integer", example: 125 },
-                          totalRewards: { type: "number", example: 2250, description: "Total rewards distributed in dollars" },
+                          totalRewards: {
+                            type: "number",
+                            example: 2250,
+                            description: "Total rewards distributed in dollars",
+                          },
                         },
                       },
                       recentSubscriptions: {
@@ -110,7 +122,8 @@ export const adminSwaggerDocs = {
     post: {
       tags: ["Admin"],
       summary: "Broadcast system announcement",
-      description: "Send a notification announcement to all users (or filtered by role). Creates a notification for each targeted user.",
+      description:
+        "Send a notification announcement to all users (or filtered by role). Creates a notification for each targeted user.",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
@@ -120,10 +133,26 @@ export const adminSwaggerDocs = {
               type: "object",
               required: ["title", "message"],
               properties: {
-                title: { type: "string", maxLength: 255, example: "Scheduled Maintenance" },
-                message: { type: "string", example: "The platform will undergo scheduled maintenance on April 10th from 2:00-4:00 AM UTC." },
-                link: { type: "string", example: "/announcements/maintenance-april-10" },
-                targetRole: { type: "string", enum: ["USER", "MASTER", "ADMIN"], example: "USER", description: "Optional: send only to specific role" },
+                title: {
+                  type: "string",
+                  maxLength: 255,
+                  example: "Scheduled Maintenance",
+                },
+                message: {
+                  type: "string",
+                  example:
+                    "The platform will undergo scheduled maintenance on April 10th from 2:00-4:00 AM UTC.",
+                },
+                link: {
+                  type: "string",
+                  example: "/announcements/maintenance-april-10",
+                },
+                targetRole: {
+                  type: "string",
+                  enum: ["USER", "MASTER", "ADMIN"],
+                  example: "USER",
+                  description: "Optional: send only to specific role",
+                },
               },
             },
           },
@@ -138,7 +167,10 @@ export const adminSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Announcement sent to 1523 users" },
+                  message: {
+                    type: "string",
+                    example: "Announcement sent to 1523 users",
+                  },
                   data: {
                     type: "object",
                     properties: {
@@ -159,7 +191,8 @@ export const adminSwaggerDocs = {
     patch: {
       tags: ["Admin"],
       summary: "Change user role",
-      description: "Admin only. Promote or demote a user's role (USER, MASTER, ADMIN).",
+      description:
+        "Admin only. Promote or demote a user's role (USER, MASTER, ADMIN).",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
@@ -170,7 +203,11 @@ export const adminSwaggerDocs = {
               required: ["userId", "role"],
               properties: {
                 userId: { type: "string", example: "65f1234567890abcdef12345" },
-                role: { type: "string", enum: ["USER", "ADMIN", "MASTER"], example: "MASTER" },
+                role: {
+                  type: "string",
+                  enum: ["USER", "ADMIN", "MASTER"],
+                  example: "MASTER",
+                },
               },
             },
           },
@@ -185,7 +222,10 @@ export const adminSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "User role changed to MASTER" },
+                  message: {
+                    type: "string",
+                    example: "User role changed to MASTER",
+                  },
                   data: {
                     type: "object",
                     properties: {
@@ -211,12 +251,24 @@ export const adminSwaggerDocs = {
     get: {
       tags: ["Admin"],
       summary: "Get all payment logs",
-      description: "Admin only. View all payment transactions across the platform with pagination and status filter.",
+      description:
+        "Admin only. View all payment transactions across the platform with pagination and status filter.",
       security: [{ bearerAuth: [] }],
       parameters: [
         { name: "page", in: "query", schema: { type: "integer", default: 1 } },
-        { name: "limit", in: "query", schema: { type: "integer", default: 20, maximum: 100 } },
-        { name: "status", in: "query", schema: { type: "string", enum: ["succeeded", "failed", "pending", "refunded"] } },
+        {
+          name: "limit",
+          in: "query",
+          schema: { type: "integer", default: 20, maximum: 100 },
+        },
+        {
+          name: "status",
+          in: "query",
+          schema: {
+            type: "string",
+            enum: ["succeeded", "failed", "pending", "refunded"],
+          },
+        },
       ],
       responses: {
         200: {
@@ -227,7 +279,10 @@ export const adminSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Payment logs retrieved" },
+                  message: {
+                    type: "string",
+                    example: "Payment logs retrieved",
+                  },
                   data: {
                     type: "array",
                     items: {
@@ -249,10 +304,17 @@ export const adminSwaggerDocs = {
                           },
                         },
                         stripePaymentIntentId: { type: "string" },
-                        amount: { type: "number", example: 29, description: "Amount in dollars" },
+                        amount: {
+                          type: "number",
+                          example: 29,
+                          description: "Amount in dollars",
+                        },
                         currency: { type: "string", example: "usd" },
                         status: { type: "string", example: "succeeded" },
-                        description: { type: "string", example: "Subscription renewal - pro_monthly" },
+                        description: {
+                          type: "string",
+                          example: "Subscription renewal - pro_monthly",
+                        },
                         invoiceUrl: { type: "string" },
                         createdAt: { type: "string", format: "date-time" },
                       },
@@ -300,9 +362,17 @@ export const adminSwaggerDocs = {
               type: "object",
               properties: {
                 name: { type: "string", example: "Pro Plan Updated" },
-                price: { type: "number", example: 89, description: "Price in dollars" },
+                price: {
+                  type: "number",
+                  example: 89,
+                  description: "Price in dollars",
+                },
                 durationInDays: { type: "integer", example: 30 },
-                features: { type: "array", items: { type: "string" }, example: ["Feature 1", "Feature 2"] },
+                features: {
+                  type: "array",
+                  items: { type: "string" },
+                  example: ["Feature 1", "Feature 2"],
+                },
                 isActive: { type: "boolean", example: true },
               },
             },
@@ -318,7 +388,10 @@ export const adminSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Subscription plan updated successfully" },
+                  message: {
+                    type: "string",
+                    example: "Subscription plan updated successfully",
+                  },
                   data: { type: "object" },
                 },
               },
@@ -335,12 +408,24 @@ export const adminSwaggerDocs = {
     get: {
       tags: ["Admin"],
       summary: "Get all subscribers",
-      description: "Admin only. View all users who have active or past subscriptions.",
+      description:
+        "Admin only. View all users who have active or past subscriptions.",
       security: [{ bearerAuth: [] }],
       parameters: [
         { name: "page", in: "query", schema: { type: "integer", default: 1 } },
-        { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
-        { name: "status", in: "query", schema: { type: "string", enum: ["active", "canceled", "past_due", "trialing", "paused"] } },
+        {
+          name: "limit",
+          in: "query",
+          schema: { type: "integer", default: 20 },
+        },
+        {
+          name: "status",
+          in: "query",
+          schema: {
+            type: "string",
+            enum: ["active", "canceled", "past_due", "trialing", "paused"],
+          },
+        },
       ],
       responses: {
         200: {
@@ -351,7 +436,10 @@ export const adminSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "All subscribers retrieved" },
+                  message: {
+                    type: "string",
+                    example: "All subscribers retrieved",
+                  },
                   data: {
                     type: "array",
                     items: {
@@ -396,7 +484,8 @@ export const adminSwaggerDocs = {
     get: {
       tags: ["Admin"],
       summary: "Get global referral statistics",
-      description: "Admin only. Retrieve global platform-wide stats for the referral campaign.",
+      description:
+        "Admin only. Retrieve global platform-wide stats for the referral campaign.",
       security: [{ bearerAuth: [] }],
       responses: {
         200: {
@@ -407,7 +496,10 @@ export const adminSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Global referral stats retrieved" },
+                  message: {
+                    type: "string",
+                    example: "Global referral stats retrieved",
+                  },
                   data: { $ref: "#/components/schemas/GlobalReferralStats" },
                 },
               },
@@ -423,13 +515,27 @@ export const adminSwaggerDocs = {
     get: {
       tags: ["Admin"],
       summary: "Get all referrals",
-      description: "Admin only. Retrieve a paginated list of every referral in the system.",
+      description:
+        "Admin only. Retrieve a paginated list of every referral in the system.",
       security: [{ bearerAuth: [] }],
       parameters: [
         { name: "page", in: "query", schema: { type: "integer", default: 1 } },
-        { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
-        { name: "search", in: "query", schema: { type: "string" }, description: "Filter by referrer or invitee name" },
-        { name: "status", in: "query", schema: { type: "string", enum: ["PENDING", "COMPLETED", "EXPIRED"] } },
+        {
+          name: "limit",
+          in: "query",
+          schema: { type: "integer", default: 20 },
+        },
+        {
+          name: "search",
+          in: "query",
+          schema: { type: "string" },
+          description: "Filter by referrer or invitee name",
+        },
+        {
+          name: "status",
+          in: "query",
+          schema: { type: "string", enum: ["PENDING", "COMPLETED", "EXPIRED"] },
+        },
       ],
       responses: {
         200: {
@@ -440,7 +546,10 @@ export const adminSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "All referrals retrieved" },
+                  message: {
+                    type: "string",
+                    example: "All referrals retrieved",
+                  },
                   data: {
                     type: "array",
                     items: { $ref: "#/components/schemas/AdminReferralItem" },

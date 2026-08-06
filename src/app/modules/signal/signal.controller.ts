@@ -17,7 +17,10 @@ const create_signal = catchAsync(async (req, res) => {
 
 const create_signal_from_json = catchAsync(async (req, res) => {
   const accountId = req.user!.userId;
-  const result = await signal_services.create_signal_from_json(accountId, req.body);
+  const result = await signal_services.create_signal_from_json(
+    accountId,
+    req.body,
+  );
 
   manageResponse(res, {
     success: true,
@@ -90,7 +93,12 @@ const get_all_signals = catchAsync(async (req, res) => {
   if (req.query.sortBy) filters.sortBy = req.query.sortBy as string;
 
   const viewerAccountId = req.user?.userId;
-  const result = await signal_services.get_signals(page, limit, filters, viewerAccountId);
+  const result = await signal_services.get_signals(
+    page,
+    limit,
+    filters,
+    viewerAccountId,
+  );
 
   manageResponse(res, {
     success: true,

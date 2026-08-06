@@ -35,7 +35,9 @@ export const handleStripeWebhook = async (req: Request, res: Response) => {
     logger.info(`📥 Webhook received: ${event.type} (ID: ${event.id})`);
 
     // Idempotency check - reject already processed events
-    const existingEvent = await StripeWebhookEvent_Model.findOne({ eventId: event.id });
+    const existingEvent = await StripeWebhookEvent_Model.findOne({
+      eventId: event.id,
+    });
     if (existingEvent) {
       logger.warn(`⚠️  Duplicate event detected, skipping: ${event.id}`);
       res.json({ received: true });
@@ -181,7 +183,8 @@ async function handleCheckoutCompleted(session: any) {
     );
 
     // Resolve tier from the database plan (not planId string parsing)
-    const { SubscriptionPlan_Model: PlanModel } = await import("./subscription.plans");
+    const { SubscriptionPlan_Model: PlanModel } =
+      await import("./subscription.plans");
     const plan = await PlanModel.findOne({ planId });
     const subscriptionTier = plan?.tier ?? "pro";
     const planName = plan?.name ?? planId;
@@ -407,7 +410,9 @@ async function handleSubscriptionUpdated(stripeSub: any) {
         updates.planId = planId;
 
         // Also update account tier based on new plan
-        const tier = planId ? (await SubscriptionPlan_Model.findOne({ planId }))?.tier : null;
+        const tier = planId
+          ? (await SubscriptionPlan_Model.findOne({ planId }))?.tier
+          : null;
         if (tier) {
           await Account_Model.findByIdAndUpdate(subscription.accountId, {
             subscriptionTier: tier,

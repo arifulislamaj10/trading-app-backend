@@ -1,4 +1,4 @@
-import { model, Schema } from 'mongoose';
+import { model, Schema } from "mongoose";
 
 export interface IStripeWebhookEvent {
   eventId: string;
@@ -12,12 +12,15 @@ const stripeWebhookEventSchema = new Schema<IStripeWebhookEvent>(
     eventType: { type: String, required: true },
     processedAt: { type: Date, default: Date.now },
   },
-  { versionKey: false, timestamps: false }
+  { versionKey: false, timestamps: false },
 );
 
-stripeWebhookEventSchema.index({ processedAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 7 });
+stripeWebhookEventSchema.index(
+  { processedAt: 1 },
+  { expireAfterSeconds: 60 * 60 * 24 * 7 },
+);
 
 export const StripeWebhookEvent_Model = model<IStripeWebhookEvent>(
-  'stripe_webhook_event',
-  stripeWebhookEventSchema
+  "stripe_webhook_event",
+  stripeWebhookEventSchema,
 );

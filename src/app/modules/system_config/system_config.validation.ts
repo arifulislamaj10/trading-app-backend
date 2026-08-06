@@ -13,7 +13,10 @@ const update_referral_reward = z.object({
 
 const update_referral_rewards_by_tier = z.object({
   rewards: tierRewardSchema,
-  fallbackAmount: z.coerce.number().min(0, "Fallback amount must be at least 0").optional(),
+  fallbackAmount: z.coerce
+    .number()
+    .min(0, "Fallback amount must be at least 0")
+    .optional(),
 });
 
 const update_referral_campaign_goal = z.object({
@@ -21,12 +24,14 @@ const update_referral_campaign_goal = z.object({
 });
 
 const update_platforms = z.object({
-  platforms: z.array(
-    z.object({
-      value: z.string().min(1, "Platform value cannot be empty"),
-      label: z.string().min(1, "Platform label cannot be empty"),
-    })
-  ).min(1, "At least one platform must be specified"),
+  platforms: z
+    .array(
+      z.object({
+        value: z.string().min(1, "Platform value cannot be empty"),
+        label: z.string().min(1, "Platform label cannot be empty"),
+      }),
+    )
+    .min(1, "At least one platform must be specified"),
 });
 
 export const system_config_validations = {

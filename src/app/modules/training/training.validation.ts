@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export const completeTrainingSchema = z.object({
   quizScore: z.coerce.number().min(0).max(100).optional(),

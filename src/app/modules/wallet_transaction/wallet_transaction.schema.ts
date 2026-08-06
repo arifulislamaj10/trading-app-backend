@@ -32,7 +32,7 @@ const walletTransactionSchema = new Schema<TWalletTransaction>(
   {
     timestamps: true,
     versionKey: false,
-  }
+  },
 );
 
 walletTransactionSchema.index({ userId: 1 });
@@ -41,5 +41,5 @@ walletTransactionSchema.index({ createdAt: -1 });
 
 export const WalletTransaction_Model = model<TWalletTransaction>(
   "wallet_transaction",
-  walletTransactionSchema
+  walletTransactionSchema,
 );

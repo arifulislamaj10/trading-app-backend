@@ -1,18 +1,25 @@
-import { AppError } from '../../utils/app_error';
-import httpStatus from 'http-status';
-import { Notification_Model, NotificationType } from './notification.schema';
-import { Types } from 'mongoose';
-import logger from '../../configs/logger';
+import { AppError } from "../../utils/app_error";
+import httpStatus from "http-status";
+import { Notification_Model, NotificationType } from "./notification.schema";
+import { Types } from "mongoose";
+import logger from "../../configs/logger";
 import {
   audienceFromLegacyTargetRole,
   BroadcastAudience,
   BroadcastEventTime,
   resolveAudienceRecipients,
-} from './notification.audience';
-import { notificationRealtime } from './notification.realtime';
+} from "./notification.audience";
+import { notificationRealtime } from "./notification.realtime";
 
-export type { BroadcastAudience, BroadcastEventTime, AudienceType } from './notification.audience';
-export { resolveAudienceRecipients, audienceFromLegacyTargetRole } from './notification.audience';
+export type {
+  BroadcastAudience,
+  BroadcastEventTime,
+  AudienceType,
+} from "./notification.audience";
+export {
+  resolveAudienceRecipients,
+  audienceFromLegacyTargetRole,
+} from "./notification.audience";
 
 interface TCreateNotification {
   accountId: string;
@@ -39,20 +46,25 @@ const toRealtimePayload = (notification: {
   type: notification.type,
   title: notification.title,
   message: notification.message,
-  link: notification.link || '',
+  link: notification.link || "",
   data: notification.data || {},
   isRead: notification.isRead ?? false,
   createdAt: notification.createdAt,
 });
 
-const emitCreated = (accountId: string, notification: Parameters<typeof toRealtimePayload>[0]) => {
+const emitCreated = (
+  accountId: string,
+  notification: Parameters<typeof toRealtimePayload>[0],
+) => {
   try {
     notificationRealtime.publish(accountId, {
-      type: 'notification.created',
+      type: "notification.created",
       payload: { notification: toRealtimePayload(notification) },
     });
   } catch (err: any) {
-    logger.warn(`Failed to emit notification SSE for ${accountId}: ${err?.message}`);
+    logger.warn(
+      `Failed to emit notification SSE for ${accountId}: ${err?.message}`,
+    );
   }
 };
 
@@ -68,14 +80,14 @@ const create_notification = async (data: TCreateNotification) => {
       type: data.type,
       title: data.title,
       message: data.message,
-      link: data.link || '',
+      link: data.link || "",
       data: data.data || {},
     });
     emitCreated(data.accountId, notification);
     return notification;
   } catch (error: any) {
     logger.error(
-      `❌ Notification creation failed for user ${data.accountId} [${data.type}]: ${error.message}`
+      `❌ Notification creation failed for user ${data.accountId} [${data.type}]: ${error.message}`,
     );
     return null;
   }
@@ -87,7 +99,9 @@ const create_notification = async (data: TCreateNotification) => {
  * Returns the count of successfully created notifications.
  * Emits SSE events immediately so clients update without polling.
  */
-const create_many_notifications = async (notifications: TCreateNotification[]) => {
+const create_many_notifications = async (
+  notifications: TCreateNotification[],
+) => {
   if (notifications.length === 0) return { createdCount: 0 };
 
   try {
@@ -96,11 +110,13 @@ const create_many_notifications = async (notifications: TCreateNotification[]) =
       type: n.type,
       title: n.title,
       message: n.message,
-      link: n.link || '',
+      link: n.link || "",
       data: n.data || {},
     }));
 
-    const created = await Notification_Model.insertMany(docs, { ordered: false });
+    const created = await Notification_Model.insertMany(docs, {
+      ordered: false,
+    });
 
     // One SSE event per recipient so badge/list refresh immediately (avoid N× fan-out noise)
     const byAccount = new Map<string, (typeof created)[number]>();
@@ -117,7 +133,9 @@ const create_many_notifications = async (notifications: TCreateNotification[]) =
     return { createdCount: created.length };
   } catch (error: any) {
     // insertMany with ordered:false may partially succeed
-    const insertedDocs = Array.isArray(error?.insertedDocs) ? error.insertedDocs : [];
+    const insertedDocs = Array.isArray(error?.insertedDocs)
+      ? error.insertedDocs
+      : [];
     const inserted = insertedDocs.length;
     if (inserted > 0) {
       for (const doc of insertedDocs) {
@@ -126,7 +144,7 @@ const create_many_notifications = async (notifications: TCreateNotification[]) =
       return { createdCount: inserted };
     }
     logger.error(
-      `❌ Bulk notification creation failed (${notifications.length} notifications): ${error.message}`
+      `❌ Bulk notification creation failed (${notifications.length} notifications): ${error.message}`,
     );
     return { createdCount: 0 };
   }
@@ -139,10 +157,12 @@ const get_my_notifications = async (
   accountId: string,
   page: number = 1,
   limit: number = 20,
-  filters: { isRead?: boolean; type?: string } = {}
+  filters: { isRead?: boolean; type?: string } = {},
 ) => {
   const skip = (page - 1) * limit;
-  const query: Record<string, unknown> = { accountId: new Types.ObjectId(accountId) };
+  const query: Record<string, unknown> = {
+    accountId: new Types.ObjectId(accountId),
+  };
 
   if (filters.isRead !== undefined) {
     query.isRead = filters.isRead;
@@ -177,9 +197,13 @@ const get_my_notifications = async (
 /**
  * Update a notification (currently supports toggling isRead status)
  */
-const update_notification = async (accountId: string, notificationId: string, data: { isRead?: boolean }) => {
+const update_notification = async (
+  accountId: string,
+  notificationId: string,
+  data: { isRead?: boolean },
+) => {
   if (!Types.ObjectId.isValid(notificationId)) {
-    throw new AppError('Invalid notification ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid notification ID", httpStatus.BAD_REQUEST);
   }
 
   const notification = await Notification_Model.findOne({
@@ -188,7 +212,7 @@ const update_notification = async (accountId: string, notificationId: string, da
   });
 
   if (!notification) {
-    throw new AppError('Notification not found', httpStatus.NOT_FOUND);
+    throw new AppError("Notification not found", httpStatus.NOT_FOUND);
   }
 
   if (data.isRead !== undefined) {
@@ -212,7 +236,7 @@ const mark_as_read = async (accountId: string, notificationId: string) => {
 const mark_all_as_read = async (accountId: string) => {
   const result = await Notification_Model.updateMany(
     { accountId: new Types.ObjectId(accountId), isRead: false },
-    { $set: { isRead: true } }
+    { $set: { isRead: true } },
   );
 
   return { markedCount: result.modifiedCount };
@@ -221,9 +245,12 @@ const mark_all_as_read = async (accountId: string) => {
 /**
  * Delete a notification
  */
-const delete_notification = async (accountId: string, notificationId: string) => {
+const delete_notification = async (
+  accountId: string,
+  notificationId: string,
+) => {
   if (!Types.ObjectId.isValid(notificationId)) {
-    throw new AppError('Invalid notification ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid notification ID", httpStatus.BAD_REQUEST);
   }
 
   const deleted = await Notification_Model.findOneAndDelete({
@@ -232,10 +259,10 @@ const delete_notification = async (accountId: string, notificationId: string) =>
   });
 
   if (!deleted) {
-    throw new AppError('Notification not found', httpStatus.NOT_FOUND);
+    throw new AppError("Notification not found", httpStatus.NOT_FOUND);
   }
 
-  return { message: 'Notification deleted' };
+  return { message: "Notification deleted" };
 };
 
 /**
@@ -259,7 +286,7 @@ const broadcast_announcement = async (
   link?: string,
   audience?: BroadcastAudience,
   legacyTargetRole?: string,
-  eventTime?: BroadcastEventTime
+  eventTime?: BroadcastEventTime,
 ) => {
   const resolvedAudience =
     audience ?? audienceFromLegacyTargetRole(legacyTargetRole);
@@ -278,10 +305,10 @@ const broadcast_announcement = async (
 
   const notifications = recipientIds.map((accountId) => ({
     accountId,
-    type: 'system_announcement' as NotificationType,
+    type: "system_announcement" as NotificationType,
     title,
     message,
-    link: link || '',
+    link: link || "",
     data: notificationData,
   }));
 
@@ -290,9 +317,12 @@ const broadcast_announcement = async (
   return { sentCount: result.createdCount };
 };
 
-const get_notification_by_id = async (accountId: string, notificationId: string) => {
+const get_notification_by_id = async (
+  accountId: string,
+  notificationId: string,
+) => {
   if (!Types.ObjectId.isValid(notificationId)) {
-    throw new AppError('Invalid notification ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid notification ID", httpStatus.BAD_REQUEST);
   }
 
   const notification = await Notification_Model.findOne({
@@ -301,7 +331,7 @@ const get_notification_by_id = async (accountId: string, notificationId: string)
   });
 
   if (!notification) {
-    throw new AppError('Notification not found', httpStatus.NOT_FOUND);
+    throw new AppError("Notification not found", httpStatus.NOT_FOUND);
   }
 
   return notification;

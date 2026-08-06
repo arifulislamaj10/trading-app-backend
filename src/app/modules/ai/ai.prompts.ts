@@ -51,11 +51,15 @@ Mapping rules:
 - Never invent prices. If entryPrice, symbol, or signalType cannot be determined, set "signal" to null and explain what is missing in "notes".
 - Do not include publishType, scheduledAt, status, or any field not listed above.`;
 
-export const buildValidationUserPrompt = (signal: Record<string, unknown>): string =>
+export const buildValidationUserPrompt = (
+  signal: Record<string, unknown>,
+): string =>
   `Validate this trading signal:\n${JSON.stringify(signal, null, 2)}`;
 
 export const buildExtractionUserPrompt = (rawContent: string): string =>
   `Extract the trading signal from this content:\n${rawContent}`;
 
-export const buildAssistUserPrompt = (signal: Record<string, unknown>): string =>
+export const buildAssistUserPrompt = (
+  signal: Record<string, unknown>,
+): string =>
   `Provide setup assistance for this draft signal:\n${JSON.stringify(signal, null, 2)}`;

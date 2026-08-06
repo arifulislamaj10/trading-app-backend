@@ -40,9 +40,12 @@ transporter.verify((error, success) => {
  * @param payload - Email content
  * @param blocking - If true, waits for completion (default: false)
  */
-const sendMail = async (payload: TMailContent, blocking: boolean = false): Promise<void> => {
+const sendMail = async (
+  payload: TMailContent,
+  blocking: boolean = false,
+): Promise<void> => {
   const sendPromise = transporter.sendMail({
-    from: `"${process.env.SMTP_FROM_NAME || 'Trading Platform'}" <${process.env.SMTP_FROM_EMAIL || configs.email.app_email || 'noreply@tradingplatform.com'}>`,
+    from: `"${process.env.SMTP_FROM_NAME || "Trading Platform"}" <${process.env.SMTP_FROM_EMAIL || configs.email.app_email || "noreply@tradingplatform.com"}>`,
     to: payload.to,
     subject: payload.subject,
     text: payload.textBody,
@@ -81,11 +84,11 @@ const sendMail = async (payload: TMailContent, blocking: boolean = false): Promi
 
             <div style="margin-top: 60px; text-align: center;">
                 <img style="width: 50px; height: 50px; border-radius: 50%;"
-                    src="${process.env.COMPANY_LOGO_URL || 'https://via.placeholder.com/50'}"
+                    src="${process.env.COMPANY_LOGO_URL || "https://via.placeholder.com/50"}"
                     alt="Company Logo">
 
                 <p style="font-size: 12px;">The Support Team</p>
-                <h3>${process.env.COMPANY_NAME || 'Trading Platform'}</h3>
+                <h3>${process.env.COMPANY_NAME || "Trading Platform"}</h3>
             </div>
         </div>
         
@@ -112,7 +115,7 @@ const sendMail = async (payload: TMailContent, blocking: boolean = false): Promi
     await sendPromise;
   } else {
     // Non-blocking: send in background with error logging
-    sendPromise.catch(err => {
+    sendPromise.catch((err) => {
       console.error(`❌ Email failed to send to ${payload.to}:`, err.message);
     });
   }

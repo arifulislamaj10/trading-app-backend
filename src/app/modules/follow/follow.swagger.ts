@@ -3,10 +3,17 @@ export const followSwaggerDocs = {
     post: {
       tags: ["Follow"],
       summary: "Toggle follow status",
-      description: "Follow if not following, unfollow if already following. Single endpoint for both actions.",
+      description:
+        "Follow if not following, unfollow if already following. Single endpoint for both actions.",
       security: [{ bearerAuth: [] }],
       parameters: [
-        { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Master Trader account ID" },
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Master Trader account ID",
+        },
       ],
       responses: {
         200: {
@@ -21,7 +28,11 @@ export const followSwaggerDocs = {
                   data: {
                     type: "object",
                     properties: {
-                      action: { type: "string", enum: ["followed", "unfollowed"], example: "followed" },
+                      action: {
+                        type: "string",
+                        enum: ["followed", "unfollowed"],
+                        example: "followed",
+                      },
                     },
                   },
                 },
@@ -29,7 +40,9 @@ export const followSwaggerDocs = {
             },
           },
         },
-        400: { description: "Invalid master ID or user is not a Master Trader" },
+        400: {
+          description: "Invalid master ID or user is not a Master Trader",
+        },
       },
     },
   },
@@ -38,11 +51,16 @@ export const followSwaggerDocs = {
     get: {
       tags: ["Follow"],
       summary: "Get masters I follow",
-      description: "List all Master Traders that the authenticated user is following.",
+      description:
+        "List all Master Traders that the authenticated user is following.",
       security: [{ bearerAuth: [] }],
       parameters: [
         { name: "page", in: "query", schema: { type: "integer", default: 1 } },
-        { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+        {
+          name: "limit",
+          in: "query",
+          schema: { type: "integer", default: 20 },
+        },
       ],
       responses: {
         200: {
@@ -53,7 +71,10 @@ export const followSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Following list retrieved" },
+                  message: {
+                    type: "string",
+                    example: "Following list retrieved",
+                  },
                   data: {
                     type: "array",
                     items: {
@@ -69,7 +90,10 @@ export const followSwaggerDocs = {
                             userProfileUrl: { type: "string" },
                           },
                         },
-                        notificationsEnabled: { type: "boolean", example: true },
+                        notificationsEnabled: {
+                          type: "boolean",
+                          example: true,
+                        },
                         createdAt: { type: "string", format: "date-time" },
                       },
                     },
@@ -99,9 +123,19 @@ export const followSwaggerDocs = {
       description: "List all users following a specific Master Trader.",
       security: [{ bearerAuth: [] }],
       parameters: [
-        { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Master Trader account ID" },
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Master Trader account ID",
+        },
         { name: "page", in: "query", schema: { type: "integer", default: 1 } },
-        { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+        {
+          name: "limit",
+          in: "query",
+          schema: { type: "integer", default: 20 },
+        },
       ],
       responses: {
         200: { description: "Followers list retrieved" },
@@ -114,10 +148,17 @@ export const followSwaggerDocs = {
     get: {
       tags: ["Follow"],
       summary: "Check follow status",
-      description: "Check whether the authenticated user is following a specific Master Trader.",
+      description:
+        "Check whether the authenticated user is following a specific Master Trader.",
       security: [{ bearerAuth: [] }],
       parameters: [
-        { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Master Trader account ID" },
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Master Trader account ID",
+        },
       ],
       responses: {
         200: {

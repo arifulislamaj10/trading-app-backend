@@ -1,4 +1,4 @@
-import { model, Schema, Types } from 'mongoose';
+import { model, Schema, Types } from "mongoose";
 
 export interface IMaster {
   accountId: Types.ObjectId;
@@ -24,13 +24,13 @@ export interface IMaster {
 
 const masterSchema = new Schema<IMaster>(
   {
-    accountId: { type: Schema.Types.ObjectId, ref: 'account', required: true },
-    bio: { type: String, default: '' },
+    accountId: { type: Schema.Types.ObjectId, ref: "account", required: true },
+    bio: { type: String, default: "" },
     specialties: { type: [String], default: [] },
     yearsOfExperience: { type: Number, default: 0 },
     isApproved: { type: Boolean, default: false },
     approvedAt: { type: Date, default: null },
-    approvedBy: { type: Schema.Types.ObjectId, ref: 'account', default: null },
+    approvedBy: { type: Schema.Types.ObjectId, ref: "account", default: null },
 
     // Reputation metrics
     totalSignals: { type: Number, default: 0 },
@@ -47,7 +47,7 @@ const masterSchema = new Schema<IMaster>(
   {
     versionKey: false,
     timestamps: true,
-  }
+  },
 );
 
 // Indexes
@@ -57,4 +57,4 @@ masterSchema.index({ isFeatured: 1 });
 masterSchema.index({ followerCount: -1 }); // For leaderboard
 masterSchema.index({ winRate: -1 }); // For leaderboard
 
-export const Master_Model = model<IMaster>('master', masterSchema);
+export const Master_Model = model<IMaster>("master", masterSchema);

@@ -1,11 +1,14 @@
-import catchAsync from '../../utils/catch_async';
-import manageResponse from '../../utils/manage_response';
-import { notification_services } from './notification.service';
-import { notificationRealtime } from './notification.realtime';
-import httpStatus from 'http-status';
+import catchAsync from "../../utils/catch_async";
+import manageResponse from "../../utils/manage_response";
+import { notification_services } from "./notification.service";
+import { notificationRealtime } from "./notification.realtime";
+import httpStatus from "http-status";
 
 const enrichNotification = (notification: any) => {
-  const obj = typeof notification.toObject === 'function' ? notification.toObject() : notification;
+  const obj =
+    typeof notification.toObject === "function"
+      ? notification.toObject()
+      : notification;
   const data = obj.data || {};
 
   // Extract signalId from data or link if not directly present
@@ -28,9 +31,9 @@ const enrichNotification = (notification: any) => {
 
   // Map backend notification types to client types
   let type = obj.type;
-  if (type === 'new_signal') type = 'signal_published';
-  else if (type === 'trade_result_logged') type = 'trade_update';
-  else if (type === 'badge_earned') type = 'badge';
+  if (type === "new_signal") type = "signal_published";
+  else if (type === "trade_result_logged") type = "trade_update";
+  else if (type === "badge_earned") type = "badge";
 
   return {
     _id: obj._id,
@@ -51,20 +54,30 @@ const get_my_notifications = catchAsync(async (req, res) => {
 
   const filters: { isRead?: boolean; type?: string } = {};
   if (req.query.isRead !== undefined) {
-    filters.isRead = req.query.isRead === 'true';
+    filters.isRead = req.query.isRead === "true";
   }
   if (req.query.type) {
     const typeValue = req.query.type;
-    filters.type = Array.isArray(typeValue) ? String(typeValue[0]) : String(typeValue);
+    filters.type = Array.isArray(typeValue)
+      ? String(typeValue[0])
+      : String(typeValue);
   }
 
-  const result = await notification_services.get_my_notifications(accountId, page, limit, filters);
+  const result = await notification_services.get_my_notifications(
+    accountId,
+    page,
+    limit,
+    filters,
+  );
   const enrichedData = result.data.map(enrichNotification);
 
   manageResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: req.query.isRead === 'true' ? 'Unread notifications retrieved' : 'Notifications retrieved',
+    message:
+      req.query.isRead === "true"
+        ? "Unread notifications retrieved"
+        : "Notifications retrieved",
     data: enrichedData,
     unreadCount: result.unreadCount,
     meta: result.meta,
@@ -75,25 +88,29 @@ const get_notification_by_id = catchAsync(async (req, res) => {
   const accountId = req.user!.userId;
   const result = await notification_services.get_notification_by_id(
     accountId,
-    req.params.id as string
+    req.params.id as string,
   );
 
   manageResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: 'Notification retrieved',
+    message: "Notification retrieved",
     data: enrichNotification(result),
   });
 });
 
 const mark_single_as_read = catchAsync(async (req, res) => {
   const accountId = req.user!.userId;
-  const result = await notification_services.update_notification(accountId, req.params.id as string, { isRead: true });
+  const result = await notification_services.update_notification(
+    accountId,
+    req.params.id as string,
+    { isRead: true },
+  );
 
   manageResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: 'Notification marked as read',
+    message: "Notification marked as read",
     data: {
       _id: result._id,
       isRead: result.isRead,
@@ -108,7 +125,7 @@ const mark_all_as_read = catchAsync(async (req, res) => {
   manageResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: 'All notifications marked as read',
+    message: "All notifications marked as read",
     data: result,
   });
 });
@@ -126,7 +143,7 @@ const update_notification = catchAsync(async (req, res) => {
     return manageResponse(res, {
       success: true,
       statusCode: httpStatus.OK,
-      message: 'All notifications marked as read',
+      message: "All notifications marked as read",
       data: result,
     });
   }
@@ -136,24 +153,33 @@ const update_notification = catchAsync(async (req, res) => {
     return manageResponse(res, {
       success: false,
       statusCode: httpStatus.BAD_REQUEST,
-      message: 'Notification ID is required for single notification update',
+      message: "Notification ID is required for single notification update",
       data: null,
     });
   }
 
-  const result = await notification_services.update_notification(accountId, notificationId, { isRead });
+  const result = await notification_services.update_notification(
+    accountId,
+    notificationId,
+    { isRead },
+  );
 
   manageResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: result.isRead ? 'Notification marked as read' : 'Notification updated',
+    message: result.isRead
+      ? "Notification marked as read"
+      : "Notification updated",
     data: result,
   });
 });
 
 const delete_notification = catchAsync(async (req, res) => {
   const accountId = req.user!.userId;
-  const result = await notification_services.delete_notification(accountId, req.params.id as string);
+  const result = await notification_services.delete_notification(
+    accountId,
+    req.params.id as string,
+  );
 
   manageResponse(res, {
     success: true,
@@ -170,7 +196,7 @@ const get_unread_count = catchAsync(async (req, res) => {
   manageResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: 'Unread count retrieved',
+    message: "Unread count retrieved",
     data: result,
   });
 });
@@ -182,10 +208,10 @@ const get_unread_count = catchAsync(async (req, res) => {
 const stream_notifications = catchAsync(async (req, res) => {
   const accountId = req.user!.userId;
 
-  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
   // Disable response timeout for long-lived stream
   req.socket.setTimeout(0);
   res.flushHeaders?.();
@@ -196,8 +222,8 @@ const stream_notifications = catchAsync(async (req, res) => {
     unsubscribe();
   };
 
-  req.on('close', onClose);
-  req.on('aborted', onClose);
+  req.on("close", onClose);
+  req.on("aborted", onClose);
 });
 
 export const notification_controllers = {
@@ -210,4 +236,3 @@ export const notification_controllers = {
   get_unread_count,
   stream_notifications,
 };
-

@@ -10,7 +10,13 @@ export type TAccount = {
 
   // Subscription & Payment
   stripeCustomerId?: string;
-  subscriptionStatus?: "none" | "trialing" | "active" | "canceled" | "past_due" | "expired";
+  subscriptionStatus?:
+    | "none"
+    | "trialing"
+    | "active"
+    | "canceled"
+    | "past_due"
+    | "expired";
   subscriptionTier?: "free" | "basic" | "pro" | "master";
   subscriptionExpiresAt?: Date;
   trialUsed?: boolean;

@@ -1,8 +1,8 @@
-import { model, Schema, Types } from 'mongoose';
-import type { SignalOutcome } from '../signal/signal.schema';
+import { model, Schema, Types } from "mongoose";
+import type { SignalOutcome } from "../signal/signal.schema";
 
-export type CopiedTradeStatus = 'pending' | 'completed' | 'failed';
-export type TradeOutcome = 'win' | 'loss' | 'breakeven';
+export type CopiedTradeStatus = "pending" | "completed" | "failed";
+export type TradeOutcome = "win" | "loss" | "breakeven";
 
 export interface ICopiedTrade {
   userId: Types.ObjectId;
@@ -21,7 +21,7 @@ export interface ICopiedTrade {
   targetPrice: number | null;
   lotSize: number | null;
   resultPnl: number | null;
-  pnlUnit: 'usd' | 'percent';
+  pnlUnit: "usd" | "percent";
   outcome: TradeOutcome | null;
   /** Mirror of the Master signal's final outcome for stats / tracking */
   masterOutcome: SignalOutcome;
@@ -35,14 +35,14 @@ export interface ICopiedTrade {
 
 const copiedTradeSchema = new Schema<ICopiedTrade>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: 'account', required: true },
-    signalId: { type: Schema.Types.ObjectId, ref: 'signal', required: true },
-    masterId: { type: Schema.Types.ObjectId, ref: 'account', required: true },
+    userId: { type: Schema.Types.ObjectId, ref: "account", required: true },
+    signalId: { type: Schema.Types.ObjectId, ref: "signal", required: true },
+    masterId: { type: Schema.Types.ObjectId, ref: "account", required: true },
 
     status: {
       type: String,
-      enum: ['pending', 'completed', 'failed'],
-      default: 'pending',
+      enum: ["pending", "completed", "failed"],
+      default: "pending",
     },
 
     // Copy intent
@@ -55,16 +55,20 @@ const copiedTradeSchema = new Schema<ICopiedTrade>(
     targetPrice: { type: Number, default: null },
     lotSize: { type: Number, default: null },
     resultPnl: { type: Number, default: null },
-    pnlUnit: { type: String, enum: ['usd', 'percent'], default: 'usd' },
-    outcome: { type: String, enum: ['win', 'loss', 'breakeven'], default: null },
+    pnlUnit: { type: String, enum: ["usd", "percent"], default: "usd" },
+    outcome: {
+      type: String,
+      enum: ["win", "loss", "breakeven"],
+      default: null,
+    },
     masterOutcome: {
       type: String,
-      enum: ['pending', 'hit_target', 'stopped_out', 'cancelled'],
-      default: 'pending',
+      enum: ["pending", "hit_target", "stopped_out", "cancelled"],
+      default: "pending",
     },
-    notes: { type: String, default: '' },
-    screenshotUrl: { type: String, default: '' },
-    externalPlatform: { type: String, default: '' },
+    notes: { type: String, default: "" },
+    screenshotUrl: { type: String, default: "" },
+    externalPlatform: { type: String, default: "" },
 
     // Timestamps
     loggedAt: { type: Date, default: null },
@@ -72,7 +76,7 @@ const copiedTradeSchema = new Schema<ICopiedTrade>(
   {
     versionKey: false,
     timestamps: true,
-  }
+  },
 );
 
 // Indexes for optimized queries
@@ -82,4 +86,7 @@ copiedTradeSchema.index({ signalId: 1 });
 copiedTradeSchema.index({ masterId: 1, status: 1 });
 copiedTradeSchema.index({ userId: 1, createdAt: -1 });
 
-export const Copied_Trade_Model = model<ICopiedTrade>('copied_trade', copiedTradeSchema);
+export const Copied_Trade_Model = model<ICopiedTrade>(
+  "copied_trade",
+  copiedTradeSchema,
+);

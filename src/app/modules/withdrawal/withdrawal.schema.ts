@@ -32,7 +32,7 @@ const withdrawalRequestSchema = new Schema<TWithdrawalRequest>(
   {
     timestamps: true,
     versionKey: false,
-  }
+  },
 );
 
 withdrawalRequestSchema.index({ userId: 1 });
@@ -40,5 +40,5 @@ withdrawalRequestSchema.index({ status: 1 });
 
 export const Withdrawal_Model = model<TWithdrawalRequest>(
   "withdrawal_request",
-  withdrawalRequestSchema
+  withdrawalRequestSchema,
 );

@@ -3,7 +3,8 @@ export const subscriptionSwaggerDocs = {
     get: {
       tags: ["Subscription"],
       summary: "Get all subscription plans",
-      description: "Retrieve all available subscription plans. Public endpoint, no authentication required.",
+      description:
+        "Retrieve all available subscription plans. Public endpoint, no authentication required.",
       responses: {
         200: {
           description: "Subscription plans retrieved successfully",
@@ -13,22 +14,39 @@ export const subscriptionSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Subscription plans retrieved successfully" },
+                  message: {
+                    type: "string",
+                    example: "Subscription plans retrieved successfully",
+                  },
                   data: {
                     type: "array",
                     items: {
                       type: "object",
                       properties: {
                         planId: { type: "string", example: "basic_monthly" },
-                        name: { type: "string", example: "Basic Plan (Monthly)" },
-                        description: { type: "string", example: "Perfect for beginner traders" },
+                        name: {
+                          type: "string",
+                          example: "Basic Plan (Monthly)",
+                        },
+                        description: {
+                          type: "string",
+                          example: "Perfect for beginner traders",
+                        },
                         price: { type: "number", example: 2900 },
                         currency: { type: "string", example: "usd" },
-                        interval: { type: "string", enum: ["month", "year"], example: "month" },
+                        interval: {
+                          type: "string",
+                          enum: ["month", "year"],
+                          example: "month",
+                        },
                         features: { type: "array", items: { type: "string" } },
                         signalLimit: { type: "number", example: 50 },
                         mediaAccess: { type: "boolean", example: true },
-                        tier: { type: "string", enum: ["free", "basic", "pro", "master"], example: "basic" },
+                        tier: {
+                          type: "string",
+                          enum: ["free", "basic", "pro", "master"],
+                          example: "basic",
+                        },
                       },
                     },
                   },
@@ -44,7 +62,8 @@ export const subscriptionSwaggerDocs = {
     post: {
       tags: ["Subscription"],
       summary: "Create checkout session",
-      description: "Create a Stripe checkout session for subscribing to a plan. First-time subscribers get a 7-day free trial.",
+      description:
+        "Create a Stripe checkout session for subscribing to a plan. First-time subscribers get a 7-day free trial.",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
@@ -78,11 +97,17 @@ export const subscriptionSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Checkout session created successfully" },
+                  message: {
+                    type: "string",
+                    example: "Checkout session created successfully",
+                  },
                   data: {
                     type: "object",
                     properties: {
-                      checkoutUrl: { type: "string", example: "https://checkout.stripe.com/pay/cs_test_..." },
+                      checkoutUrl: {
+                        type: "string",
+                        example: "https://checkout.stripe.com/pay/cs_test_...",
+                      },
                       sessionId: { type: "string", example: "cs_test_..." },
                       trialDays: { type: "number", example: 7 },
                     },
@@ -92,7 +117,9 @@ export const subscriptionSwaggerDocs = {
             },
           },
         },
-        400: { description: "Bad Request - Plan not found or already subscribed" },
+        400: {
+          description: "Bad Request - Plan not found or already subscribed",
+        },
         401: { description: "Unauthorized" },
       },
     },
@@ -101,7 +128,8 @@ export const subscriptionSwaggerDocs = {
     get: {
       tags: ["Subscription"],
       summary: "Get current subscription",
-      description: "Retrieve the authenticated user's current subscription details and access status.",
+      description:
+        "Retrieve the authenticated user's current subscription details and access status.",
       security: [{ bearerAuth: [] }],
       responses: {
         200: {
@@ -112,7 +140,10 @@ export const subscriptionSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Subscription details retrieved successfully" },
+                  message: {
+                    type: "string",
+                    example: "Subscription details retrieved successfully",
+                  },
                   data: {
                     type: "object",
                     properties: {
@@ -136,7 +167,8 @@ export const subscriptionSwaggerDocs = {
     post: {
       tags: ["Subscription"],
       summary: "Update subscription status (cancel or resume)",
-      description: "Cancel or resume your subscription. Use `{ action: 'cancel' }` to cancel at period end, or `{ action: 'resume' }` to resume a scheduled cancellation.",
+      description:
+        "Cancel or resume your subscription. Use `{ action: 'cancel' }` to cancel at period end, or `{ action: 'resume' }` to resume a scheduled cancellation.",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
@@ -146,7 +178,11 @@ export const subscriptionSwaggerDocs = {
               type: "object",
               required: ["action"],
               properties: {
-                action: { type: "string", enum: ["cancel", "resume"], example: "cancel" },
+                action: {
+                  type: "string",
+                  enum: ["cancel", "resume"],
+                  example: "cancel",
+                },
               },
             },
           },
@@ -154,7 +190,9 @@ export const subscriptionSwaggerDocs = {
       },
       responses: {
         200: { description: "Subscription status updated" },
-        400: { description: "Bad Request — Invalid action or subscription state" },
+        400: {
+          description: "Bad Request — Invalid action or subscription state",
+        },
         401: { description: "Unauthorized" },
       },
     },
@@ -163,7 +201,8 @@ export const subscriptionSwaggerDocs = {
     post: {
       tags: ["Subscription"],
       summary: "Change subscription plan (upgrade or downgrade)",
-      description: "Upgrade or downgrade your subscription plan. Upgrades are immediate and prorated. Downgrades take effect at the end of the current billing period. If `direction` is not provided, it is auto-detected based on tier comparison.",
+      description:
+        "Upgrade or downgrade your subscription plan. Upgrades are immediate and prorated. Downgrades take effect at the end of the current billing period. If `direction` is not provided, it is auto-detected based on tier comparison.",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
@@ -174,7 +213,11 @@ export const subscriptionSwaggerDocs = {
               required: ["planId"],
               properties: {
                 planId: { type: "string", example: "pro_monthly" },
-                direction: { type: "string", enum: ["upgrade", "downgrade"], example: "upgrade" },
+                direction: {
+                  type: "string",
+                  enum: ["upgrade", "downgrade"],
+                  example: "upgrade",
+                },
               },
             },
           },
@@ -182,7 +225,9 @@ export const subscriptionSwaggerDocs = {
       },
       responses: {
         200: { description: "Subscription plan changed" },
-        400: { description: "Bad Request — Invalid plan or direction mismatch" },
+        400: {
+          description: "Bad Request — Invalid plan or direction mismatch",
+        },
         401: { description: "Unauthorized" },
       },
     },
@@ -191,7 +236,8 @@ export const subscriptionSwaggerDocs = {
     post: {
       tags: ["Subscription"],
       summary: "Cancel subscription (deprecated)",
-      description: "Deprecated: Use `POST /subscription/status` with `{ action: 'cancel' }` instead. Cancel the current subscription. Access continues until the end of the billing period.",
+      description:
+        "Deprecated: Use `POST /subscription/status` with `{ action: 'cancel' }` instead. Cancel the current subscription. Access continues until the end of the billing period.",
       deprecated: true,
       security: [{ bearerAuth: [] }],
       responses: {
@@ -203,7 +249,11 @@ export const subscriptionSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Subscription will be canceled at the end of current billing period" },
+                  message: {
+                    type: "string",
+                    example:
+                      "Subscription will be canceled at the end of current billing period",
+                  },
                   data: {
                     type: "object",
                     properties: {
@@ -215,7 +265,10 @@ export const subscriptionSwaggerDocs = {
             },
           },
         },
-        400: { description: "Bad Request - Subscription not found or already canceled" },
+        400: {
+          description:
+            "Bad Request - Subscription not found or already canceled",
+        },
         401: { description: "Unauthorized" },
       },
     },
@@ -224,7 +277,8 @@ export const subscriptionSwaggerDocs = {
     post: {
       tags: ["Subscription"],
       summary: "Resume subscription (deprecated)",
-      description: "Deprecated: Use `POST /subscription/status` with `{ action: 'resume' }` instead. Resume a subscription that was scheduled for cancellation.",
+      description:
+        "Deprecated: Use `POST /subscription/status` with `{ action: 'resume' }` instead. Resume a subscription that was scheduled for cancellation.",
       deprecated: true,
       security: [{ bearerAuth: [] }],
       responses: {
@@ -236,7 +290,10 @@ export const subscriptionSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Subscription has been resumed" },
+                  message: {
+                    type: "string",
+                    example: "Subscription has been resumed",
+                  },
                   data: {
                     type: "object",
                     properties: {
@@ -248,7 +305,10 @@ export const subscriptionSwaggerDocs = {
             },
           },
         },
-        400: { description: "Bad Request - Subscription not found or not scheduled for cancellation" },
+        400: {
+          description:
+            "Bad Request - Subscription not found or not scheduled for cancellation",
+        },
         401: { description: "Unauthorized" },
       },
     },
@@ -257,7 +317,8 @@ export const subscriptionSwaggerDocs = {
     post: {
       tags: ["Subscription"],
       summary: "Upgrade subscription (deprecated)",
-      description: "Deprecated: Use `POST /subscription/change-plan` with `{ planId, direction: 'upgrade' }` instead. Upgrade to a higher subscription tier. Changes are prorated and effective immediately.",
+      description:
+        "Deprecated: Use `POST /subscription/change-plan` with `{ planId, direction: 'upgrade' }` instead. Upgrade to a higher subscription tier. Changes are prorated and effective immediately.",
       deprecated: true,
       security: [{ bearerAuth: [] }],
       requestBody: {
@@ -287,11 +348,17 @@ export const subscriptionSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Subscription upgraded successfully" },
+                  message: {
+                    type: "string",
+                    example: "Subscription upgraded successfully",
+                  },
                   data: {
                     type: "object",
                     properties: {
-                      newPlan: { type: "string", example: "Pro Plan (Monthly)" },
+                      newPlan: {
+                        type: "string",
+                        example: "Pro Plan (Monthly)",
+                      },
                       prorated: { type: "boolean", example: true },
                     },
                   },
@@ -309,7 +376,8 @@ export const subscriptionSwaggerDocs = {
     post: {
       tags: ["Subscription"],
       summary: "Downgrade subscription (deprecated)",
-      description: "Deprecated: Use `POST /subscription/change-plan` with `{ planId, direction: 'downgrade' }` instead. Downgrade to a lower subscription tier. Changes take effect at the end of the current billing period.",
+      description:
+        "Deprecated: Use `POST /subscription/change-plan` with `{ planId, direction: 'downgrade' }` instead. Downgrade to a lower subscription tier. Changes take effect at the end of the current billing period.",
       deprecated: true,
       security: [{ bearerAuth: [] }],
       requestBody: {
@@ -339,11 +407,18 @@ export const subscriptionSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Subscription will be downgraded at the end of current billing period" },
+                  message: {
+                    type: "string",
+                    example:
+                      "Subscription will be downgraded at the end of current billing period",
+                  },
                   data: {
                     type: "object",
                     properties: {
-                      newPlan: { type: "string", example: "Basic Plan (Monthly)" },
+                      newPlan: {
+                        type: "string",
+                        example: "Basic Plan (Monthly)",
+                      },
                       effectiveDate: { type: "string", format: "date-time" },
                     },
                   },
@@ -361,7 +436,8 @@ export const subscriptionSwaggerDocs = {
     post: {
       tags: ["Subscription"],
       summary: "Create billing portal session",
-      description: "Create a Stripe Customer Portal session for users to manage their subscription, payment methods, and view invoices.",
+      description:
+        "Create a Stripe Customer Portal session for users to manage their subscription, payment methods, and view invoices.",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: false,
@@ -389,11 +465,17 @@ export const subscriptionSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Billing portal session created" },
+                  message: {
+                    type: "string",
+                    example: "Billing portal session created",
+                  },
                   data: {
                     type: "object",
                     properties: {
-                      portalUrl: { type: "string", example: "https://billing.stripe.com/p/session_..." },
+                      portalUrl: {
+                        type: "string",
+                        example: "https://billing.stripe.com/p/session_...",
+                      },
                     },
                   },
                 },
@@ -410,7 +492,8 @@ export const subscriptionSwaggerDocs = {
     get: {
       tags: ["Subscription"],
       summary: "Get payment history",
-      description: "Retrieve the authenticated user's payment history with pagination.",
+      description:
+        "Retrieve the authenticated user's payment history with pagination.",
       security: [{ bearerAuth: [] }],
       parameters: [
         {
@@ -435,7 +518,10 @@ export const subscriptionSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Payment history retrieved successfully" },
+                  message: {
+                    type: "string",
+                    example: "Payment history retrieved successfully",
+                  },
                   data: { type: "array", items: { type: "object" } },
                   meta: {
                     type: "object",
@@ -459,7 +545,8 @@ export const subscriptionSwaggerDocs = {
     get: {
       tags: ["Subscription"],
       summary: "Get subscription usage",
-      description: "Retrieve the authenticated user's signal usage and remaining limits for the current billing period.",
+      description:
+        "Retrieve the authenticated user's signal usage and remaining limits for the current billing period.",
       security: [{ bearerAuth: [] }],
       responses: {
         200: {
@@ -470,14 +557,20 @@ export const subscriptionSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Subscription usage retrieved successfully" },
+                  message: {
+                    type: "string",
+                    example: "Subscription usage retrieved successfully",
+                  },
                   data: {
                     type: "object",
                     properties: {
                       signalsUsed: { type: "number", example: 12 },
                       signalLimit: { type: "number", example: 50 },
                       signalsRemaining: { type: "number", example: 38 },
-                      currentPeriodStart: { type: "string", format: "date-time" },
+                      currentPeriodStart: {
+                        type: "string",
+                        format: "date-time",
+                      },
                       currentPeriodEnd: { type: "string", format: "date-time" },
                       canViewMoreSignals: { type: "boolean", example: true },
                     },

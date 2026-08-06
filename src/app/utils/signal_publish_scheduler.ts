@@ -1,6 +1,6 @@
-import cron from 'node-cron';
-import { signal_services } from '../modules/signal/signal.service';
-import logger from '../configs/logger';
+import cron from "node-cron";
+import { signal_services } from "../modules/signal/signal.service";
+import logger from "../configs/logger";
 
 /**
  * Publish scheduled signals whose scheduled time has arrived.
@@ -12,13 +12,15 @@ const executePublishJob = async () => {
 
     if (result.total && result.total > 0) {
       logger.info(
-        `⏰ Scheduled signal publish complete: ${result.published} published, ${result.notified} notifications sent, ${result.errors} errors, ${result.total} total`
+        `⏰ Scheduled signal publish complete: ${result.published} published, ${result.notified} notifications sent, ${result.errors} errors, ${result.total} total`,
       );
     } else {
-      logger.info('📅 Signal publish check: no signals due');
+      logger.info("📅 Signal publish check: no signals due");
     }
   } catch (error: any) {
-    logger.error(`❌ Failed to execute scheduled publish job: ${error.message}`);
+    logger.error(
+      `❌ Failed to execute scheduled publish job: ${error.message}`,
+    );
   }
 };
 
@@ -27,9 +29,9 @@ const executePublishJob = async () => {
  * This ensures signals are published promptly (within 1 minute of scheduled time)
  */
 export const scheduleSignalPublish = () => {
-  cron.schedule('* * * * *', async () => {
+  cron.schedule("* * * * *", async () => {
     await executePublishJob();
   });
 
-  logger.info('📅 Scheduled signal publish job registered (runs every minute)');
+  logger.info("📅 Scheduled signal publish job registered (runs every minute)");
 };

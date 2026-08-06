@@ -1,5 +1,5 @@
-import { Types } from 'mongoose';
-import { Audit_Log_Model, AuditAction } from './audit.schema';
+import { Types } from "mongoose";
+import { Audit_Log_Model, AuditAction } from "./audit.schema";
 
 export const audit_services = {
   log: async (
@@ -7,7 +7,7 @@ export const audit_services = {
     actorId: string,
     targetType: string,
     targetId: string,
-    metadata: Record<string, unknown> = {}
+    metadata: Record<string, unknown> = {},
   ) => {
     await Audit_Log_Model.create({
       action,

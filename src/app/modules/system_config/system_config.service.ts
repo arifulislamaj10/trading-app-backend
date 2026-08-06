@@ -17,7 +17,9 @@ const DEFAULT_TIER_REWARDS: IReferralRewardsByTier = {
   master: 10,
 };
 
-const get_subscription_tiers_from_db = async (): Promise<ISubscriptionTierInfo[]> => {
+const get_subscription_tiers_from_db = async (): Promise<
+  ISubscriptionTierInfo[]
+> => {
   const plans = await SubscriptionPlan_Model.find({ isActive: true }).sort({
     price: 1,
     name: 1,
@@ -70,7 +72,9 @@ const normalize_tier_rewards = (
 ): Partial<IReferralRewardsByTier> => {
   if (!rewards || typeof rewards !== "object") return {};
   if (typeof (rewards as { toObject?: () => object }).toObject === "function") {
-    return (rewards as { toObject: () => object }).toObject() as Partial<IReferralRewardsByTier>;
+    return (
+      rewards as { toObject: () => object }
+    ).toObject() as Partial<IReferralRewardsByTier>;
   }
   return rewards as Partial<IReferralRewardsByTier>;
 };
@@ -193,7 +197,10 @@ const update_referral_campaign_goal = async (goal: number, adminId: string) => {
   return get_config_with_tiers();
 };
 
-const update_platforms = async (platforms: Array<{ value: string; label: string }>, adminId: string) => {
+const update_platforms = async (
+  platforms: Array<{ value: string; label: string }>,
+  adminId: string,
+) => {
   const config = await get_config();
   config.platforms = platforms;
   config.updatedBy = adminId;

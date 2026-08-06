@@ -1,6 +1,10 @@
 import { Types } from "mongoose";
 
-export type TWithdrawalStatus = "PENDING" | "APPROVED" | "COMPLETED" | "REJECTED";
+export type TWithdrawalStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "COMPLETED"
+  | "REJECTED";
 
 export type TWithdrawalRequest = {
   userId: Types.ObjectId;

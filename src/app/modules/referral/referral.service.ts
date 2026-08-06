@@ -111,7 +111,10 @@ const get_referral_stats_from_db = async (userId: string) => {
   );
 
   // Base URL from config
-  const baseUrl = configs.jwt.front_end_url || process.env.FRONTEND_URL || "http://localhost:3000";
+  const baseUrl =
+    configs.jwt.front_end_url ||
+    process.env.FRONTEND_URL ||
+    "http://localhost:3000";
   const referralLink = `${baseUrl}/login?ref=${account!.referralCode}`;
 
   return {
@@ -191,9 +194,8 @@ const complete_referral_in_db = async (inviteeId: string) => {
     const invitee = await Account_Model.findById(inviteeId).session(session);
     const inviteeTier = invitee?.subscriptionTier || "free";
 
-    const REWARD_AMOUNT = await system_config_services.get_referral_reward_for_tier(
-      inviteeTier
-    );
+    const REWARD_AMOUNT =
+      await system_config_services.get_referral_reward_for_tier(inviteeTier);
 
     await Referral_Model.findByIdAndUpdate(
       referral._id,
@@ -203,24 +205,29 @@ const complete_referral_in_db = async (inviteeId: string) => {
         inviteeSubscriptionTier: inviteeTier,
         completedAt: new Date(),
       },
-      { session }
+      { session },
     );
 
     if (REWARD_AMOUNT > 0) {
       await Account_Model.findByIdAndUpdate(
         referral.referrerId,
         { $inc: { walletBalance: REWARD_AMOUNT } },
-        { session }
+        { session },
       );
 
-      await WalletTransaction_Model.create([{
-        userId: referral.referrerId,
-        amount: REWARD_AMOUNT,
-        type: "REWARD",
-        status: "COMPLETED",
-        referenceId: referral._id,
-        description: `Referral reward (${inviteeTier} tier)`,
-      }], { session });
+      await WalletTransaction_Model.create(
+        [
+          {
+            userId: referral.referrerId,
+            amount: REWARD_AMOUNT,
+            type: "REWARD",
+            status: "COMPLETED",
+            referenceId: referral._id,
+            description: `Referral reward (${inviteeTier} tier)`,
+          },
+        ],
+        { session },
+      );
     }
 
     await session.commitTransaction();
@@ -240,4 +247,3 @@ export const referral_services = {
   generateReferralCode,
   get_badge_by_referral_count,
 };
-

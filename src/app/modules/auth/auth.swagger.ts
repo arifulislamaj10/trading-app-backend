@@ -3,7 +3,8 @@ export const authSwaggerDocs = {
     post: {
       tags: ["Authentication"],
       summary: "Register a new user",
-      description: "Create a new user account with email verification. **Note:** Verification email is sent asynchronously (non-blocking) for fast registration. Default role is USER.",
+      description:
+        "Create a new user account with email verification. **Note:** Verification email is sent asynchronously (non-blocking) for fast registration. Default role is USER.",
       requestBody: {
         required: true,
         content: {
@@ -13,21 +14,25 @@ export const authSwaggerDocs = {
               required: ["name", "email", "password", "confirmPassword"],
               properties: {
                 name: { type: "string", example: "John Doe" },
-                email: { type: "string", format: "email", example: "user@example.com" },
+                email: {
+                  type: "string",
+                  format: "email",
+                  example: "user@example.com",
+                },
                 password: {
                   type: "string",
                   example: "SecurePass123!",
-                  description: "Must be at least 6 characters"
+                  description: "Must be at least 6 characters",
                 },
                 confirmPassword: {
                   type: "string",
                   example: "SecurePass123!",
-                  description: "Must match password"
+                  description: "Must match password",
                 },
                 referralCode: {
                   type: "string",
                   example: "REF123456",
-                  description: "Optional: Referral code from a friend"
+                  description: "Optional: Referral code from a friend",
                 },
               },
             },
@@ -43,18 +48,28 @@ export const authSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Account created successfully" },
+                  message: {
+                    type: "string",
+                    example: "Account created successfully",
+                  },
                   statusCode: { type: "integer", example: 201 },
                   data: {
                     type: "array",
                     items: {
                       type: "object",
                       properties: {
-                        _id: { type: "string", example: "65f1234567890abcdef12345" },
+                        _id: {
+                          type: "string",
+                          example: "65f1234567890abcdef12345",
+                        },
                         name: { type: "string", example: "John Doe" },
                         email: { type: "string", example: "user@example.com" },
                         role: { type: "string", example: "USER" },
-                        isVerified: { type: "boolean", example: false, description: "false until email is verified" },
+                        isVerified: {
+                          type: "boolean",
+                          example: false,
+                          description: "false until email is verified",
+                        },
                         createdAt: { type: "string", format: "date-time" },
                         updatedAt: { type: "string", format: "date-time" },
                       },
@@ -74,7 +89,8 @@ export const authSwaggerDocs = {
     post: {
       tags: ["Authentication"],
       summary: "Login user",
-      description: "Authenticate with email and password. **Note:** The `twoFactorCode` field is ONLY required if 2FA is enabled on the account. For normal login, just provide email and password.",
+      description:
+        "Authenticate with email and password. **Note:** The `twoFactorCode` field is ONLY required if 2FA is enabled on the account. For normal login, just provide email and password.",
       requestBody: {
         required: true,
         content: {
@@ -83,13 +99,18 @@ export const authSwaggerDocs = {
               type: "object",
               required: ["email", "password"],
               properties: {
-                email: { type: "string", format: "email", example: "user@example.com" },
+                email: {
+                  type: "string",
+                  format: "email",
+                  example: "user@example.com",
+                },
                 password: { type: "string", example: "SecurePass123!" },
-                twoFactorCode: { 
-                  type: "string", 
-                  pattern: "^\\d{6}$", 
+                twoFactorCode: {
+                  type: "string",
+                  pattern: "^\\d{6}$",
                   example: "123456",
-                  description: "Optional: Only required if 2FA is enabled on your account"
+                  description:
+                    "Optional: Only required if 2FA is enabled on your account",
                 },
               },
             },
@@ -109,10 +130,24 @@ export const authSwaggerDocs = {
                   data: {
                     type: "object",
                     properties: {
-                      accessToken: { type: "string", example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
-                      refreshToken: { type: "string", example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
-                      role: { type: "string", enum: ["USER", "ADMIN", "MASTER"], example: "USER" },
-                      requiresTwoFactor: { type: "boolean", example: false, description: "true if 2FA is enabled" },
+                      accessToken: {
+                        type: "string",
+                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                      },
+                      refreshToken: {
+                        type: "string",
+                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                      },
+                      role: {
+                        type: "string",
+                        enum: ["USER", "ADMIN", "MASTER"],
+                        example: "USER",
+                      },
+                      requiresTwoFactor: {
+                        type: "boolean",
+                        example: false,
+                        description: "true if 2FA is enabled",
+                      },
                     },
                   },
                 },
@@ -120,7 +155,9 @@ export const authSwaggerDocs = {
             },
           },
         },
-        401: { description: "Invalid credentials or 2FA code required/invalid" },
+        401: {
+          description: "Invalid credentials or 2FA code required/invalid",
+        },
         429: { description: "Too many failed attempts. Account locked." },
       },
     },
@@ -130,7 +167,8 @@ export const authSwaggerDocs = {
     get: {
       tags: ["Authentication"],
       summary: "Get current user profile",
-      description: "Retrieve the authenticated user's account information. Requires valid JWT token.",
+      description:
+        "Retrieve the authenticated user's account information. Requires valid JWT token.",
       security: [{ bearerAuth: [] }],
       responses: {
         200: {
@@ -141,17 +179,30 @@ export const authSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Profile fetched successfully" },
+                  message: {
+                    type: "string",
+                    example: "Profile fetched successfully",
+                  },
                   data: {
                     type: "object",
                     properties: {
                       account: {
                         type: "object",
                         properties: {
-                          _id: { type: "string", example: "65f1234567890abcdef12345" },
+                          _id: {
+                            type: "string",
+                            example: "65f1234567890abcdef12345",
+                          },
                           name: { type: "string", example: "John Doe" },
-                          email: { type: "string", example: "user@example.com" },
-                          role: { type: "string", enum: ["USER", "ADMIN", "MASTER"], example: "USER" },
+                          email: {
+                            type: "string",
+                            example: "user@example.com",
+                          },
+                          role: {
+                            type: "string",
+                            enum: ["USER", "ADMIN", "MASTER"],
+                            example: "USER",
+                          },
                           isVerified: { type: "boolean", example: true },
                           accountStatus: { type: "string", example: "ACTIVE" },
                           twoFactorEnabled: { type: "boolean", example: false },
@@ -190,9 +241,10 @@ export const authSwaggerDocs = {
     post: {
       tags: ["Authentication"],
       summary: "Refresh access token",
-      description: "Get new access token using refresh token from cookie. Note: refreshToken cookie must be present.",
+      description:
+        "Get new access token using refresh token from cookie. Note: refreshToken cookie must be present.",
       responses: {
-        200: { 
+        200: {
           description: "Token refreshed successfully",
           content: {
             "application/json": {
@@ -200,7 +252,10 @@ export const authSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Token refreshed successfully" },
+                  message: {
+                    type: "string",
+                    example: "Token refreshed successfully",
+                  },
                   data: {
                     type: "object",
                     properties: {
@@ -262,15 +317,24 @@ export const authSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Password changed successfully" },
+                  message: {
+                    type: "string",
+                    example: "Password changed successfully",
+                  },
                   data: { type: "null" },
                 },
               },
             },
           },
         },
-        400: { description: "Bad Request — Validation failed, passwords do not match, or new password same as old" },
-        401: { description: "Unauthorized — Invalid old password or not authenticated" },
+        400: {
+          description:
+            "Bad Request — Validation failed, passwords do not match, or new password same as old",
+        },
+        401: {
+          description:
+            "Unauthorized — Invalid old password or not authenticated",
+        },
         404: { description: "Account not found" },
       },
     },
@@ -280,7 +344,8 @@ export const authSwaggerDocs = {
     post: {
       tags: ["Authentication"],
       summary: "Request password reset",
-      description: "Sends OTP to email for password reset. Rate limited to 3 requests per hour. **Note:** Email is sent asynchronously (non-blocking).",
+      description:
+        "Sends OTP to email for password reset. Rate limited to 3 requests per hour. **Note:** Email is sent asynchronously (non-blocking).",
       requestBody: {
         required: true,
         content: {
@@ -289,14 +354,21 @@ export const authSwaggerDocs = {
               type: "object",
               required: ["email"],
               properties: {
-                email: { type: "string", format: "email", example: "user@example.com" },
+                email: {
+                  type: "string",
+                  format: "email",
+                  example: "user@example.com",
+                },
               },
             },
           },
         },
       },
       responses: {
-        200: { description: "Password reset email sent (always returns success for security)" },
+        200: {
+          description:
+            "Password reset email sent (always returns success for security)",
+        },
         429: { description: "Too many requests. Try again later." },
       },
     },
@@ -313,12 +385,28 @@ export const authSwaggerDocs = {
           "application/json": {
             schema: {
               type: "object",
-              required: ["email", "verificationCode", "newPassword", "confirmPassword"],
+              required: [
+                "email",
+                "verificationCode",
+                "newPassword",
+                "confirmPassword",
+              ],
               properties: {
-                email: { type: "string", format: "email", example: "user@example.com" },
-                verificationCode: { type: "string", pattern: "^\\d{6}$", example: "123456" },
+                email: {
+                  type: "string",
+                  format: "email",
+                  example: "user@example.com",
+                },
+                verificationCode: {
+                  type: "string",
+                  pattern: "^\\d{6}$",
+                  example: "123456",
+                },
                 newPassword: { type: "string", example: "NewSecurePass456!" },
-                confirmPassword: { type: "string", example: "NewSecurePass456!" },
+                confirmPassword: {
+                  type: "string",
+                  example: "NewSecurePass456!",
+                },
               },
             },
           },
@@ -336,7 +424,8 @@ export const authSwaggerDocs = {
     post: {
       tags: ["Authentication"],
       summary: "Verify email with OTP",
-      description: "Verify account email using the code sent during registration.",
+      description:
+        "Verify account email using the code sent during registration.",
       requestBody: {
         required: true,
         content: {
@@ -345,8 +434,16 @@ export const authSwaggerDocs = {
               type: "object",
               required: ["email", "verificationCode"],
               properties: {
-                email: { type: "string", format: "email", example: "user@example.com" },
-                verificationCode: { type: "string", pattern: "^\\d{6}$", example: "123456" },
+                email: {
+                  type: "string",
+                  format: "email",
+                  example: "user@example.com",
+                },
+                verificationCode: {
+                  type: "string",
+                  pattern: "^\\d{6}$",
+                  example: "123456",
+                },
               },
             },
           },
@@ -373,7 +470,11 @@ export const authSwaggerDocs = {
               type: "object",
               required: ["email"],
               properties: {
-                email: { type: "string", format: "email", example: "user@example.com" },
+                email: {
+                  type: "string",
+                  format: "email",
+                  example: "user@example.com",
+                },
               },
             },
           },
@@ -400,7 +501,11 @@ export const authSwaggerDocs = {
               type: "object",
               required: ["email", "backupCode"],
               properties: {
-                email: { type: "string", format: "email", example: "user@example.com" },
+                email: {
+                  type: "string",
+                  format: "email",
+                  example: "user@example.com",
+                },
                 backupCode: { type: "string", example: "aB3dE7gH" },
               },
             },
@@ -416,13 +521,20 @@ export const authSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Login successful with backup code" },
+                  message: {
+                    type: "string",
+                    example: "Login successful with backup code",
+                  },
                   data: {
                     type: "object",
                     properties: {
                       accessToken: { type: "string" },
                       refreshToken: { type: "string" },
-                      role: { type: "string", enum: ["USER", "ADMIN", "MASTER"], example: "USER" },
+                      role: {
+                        type: "string",
+                        enum: ["USER", "ADMIN", "MASTER"],
+                        example: "USER",
+                      },
                     },
                   },
                 },
@@ -441,7 +553,8 @@ export const authSwaggerDocs = {
     post: {
       tags: ["Two-Factor Authentication"],
       summary: "Setup 2FA",
-      description: "Initiate 2FA setup. Returns QR code URL and backup codes. Requires password verification.",
+      description:
+        "Initiate 2FA setup. Returns QR code URL and backup codes. Requires password verification.",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
@@ -470,12 +583,18 @@ export const authSwaggerDocs = {
                   data: {
                     type: "object",
                     properties: {
-                      secret: { type: "string", description: "TOTP secret (for manual entry)" },
-                      qrCodeUrl: { type: "string", description: "QR code URL for authenticator app" },
-                      backupCodes: { 
-                        type: "array", 
+                      secret: {
+                        type: "string",
+                        description: "TOTP secret (for manual entry)",
+                      },
+                      qrCodeUrl: {
+                        type: "string",
+                        description: "QR code URL for authenticator app",
+                      },
+                      backupCodes: {
+                        type: "array",
                         items: { type: "string" },
-                        description: "Save these! Shown only once."
+                        description: "Save these! Shown only once.",
                       },
                     },
                   },
@@ -494,7 +613,8 @@ export const authSwaggerDocs = {
     post: {
       tags: ["Two-Factor Authentication"],
       summary: "Enable 2FA",
-      description: "Enable 2FA after setup by verifying the code from authenticator app.",
+      description:
+        "Enable 2FA after setup by verifying the code from authenticator app.",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
@@ -504,7 +624,11 @@ export const authSwaggerDocs = {
               type: "object",
               required: ["twoFactorCode"],
               properties: {
-                twoFactorCode: { type: "string", pattern: "^\\d{6}$", example: "123456" },
+                twoFactorCode: {
+                  type: "string",
+                  pattern: "^\\d{6}$",
+                  example: "123456",
+                },
               },
             },
           },
@@ -531,7 +655,11 @@ export const authSwaggerDocs = {
               type: "object",
               required: ["twoFactorCode"],
               properties: {
-                twoFactorCode: { type: "string", pattern: "^\\d{6}$", example: "123456" },
+                twoFactorCode: {
+                  type: "string",
+                  pattern: "^\\d{6}$",
+                  example: "123456",
+                },
               },
             },
           },

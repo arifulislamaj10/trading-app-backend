@@ -1,12 +1,12 @@
-import { Master_Model } from '../master/master.schema';
-import { Signal_Model } from '../signal/signal.schema';
-import { AppError } from '../../utils/app_error';
-import httpStatus from 'http-status';
-import { Types } from 'mongoose';
-import { referral_services } from '../referral/referral.service';
-import { Referral_Model } from '../referral/referral.schema';
+import { Master_Model } from "../master/master.schema";
+import { Signal_Model } from "../signal/signal.schema";
+import { AppError } from "../../utils/app_error";
+import httpStatus from "http-status";
+import { Types } from "mongoose";
+import { referral_services } from "../referral/referral.service";
+import { Referral_Model } from "../referral/referral.schema";
 
-export type TimeframeType = 'week' | 'month' | 'all';
+export type TimeframeType = "week" | "month" | "all";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
@@ -14,19 +14,21 @@ const DEFAULT_LIMIT = 10;
 /**
  * Get date range based on timeframe
  */
-const getDateRange = (timeframe: TimeframeType): { startDate: Date; endDate: Date } => {
+const getDateRange = (
+  timeframe: TimeframeType,
+): { startDate: Date; endDate: Date } => {
   const now = new Date();
   const endDate = new Date(now);
 
   let startDate: Date;
   switch (timeframe) {
-    case 'week':
+    case "week":
       startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       break;
-    case 'month':
+    case "month":
       startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       break;
-    case 'all':
+    case "all":
     default:
       startDate = new Date(0);
       break;
@@ -52,18 +54,26 @@ interface NormalizedMetrics {
  */
 const normalizeMetrics = (
   metrics: NormalizedMetrics,
-  maxMetrics: NormalizedMetrics
+  maxMetrics: NormalizedMetrics,
 ): number => {
-  const winRateScore = maxMetrics.winRate > 0 ? metrics.winRate / maxMetrics.winRate : 0;
-  const avgPnlScore = maxMetrics.avgPnl > 0 ? metrics.avgPnl / maxMetrics.avgPnl : 0;
-  const followerScore = maxMetrics.followerCount > 0 ? metrics.followerCount / maxMetrics.followerCount : 0;
-  const signalScore = maxMetrics.totalSignals > 0 ? metrics.totalSignals / maxMetrics.totalSignals : 0;
+  const winRateScore =
+    maxMetrics.winRate > 0 ? metrics.winRate / maxMetrics.winRate : 0;
+  const avgPnlScore =
+    maxMetrics.avgPnl > 0 ? metrics.avgPnl / maxMetrics.avgPnl : 0;
+  const followerScore =
+    maxMetrics.followerCount > 0
+      ? metrics.followerCount / maxMetrics.followerCount
+      : 0;
+  const signalScore =
+    maxMetrics.totalSignals > 0
+      ? metrics.totalSignals / maxMetrics.totalSignals
+      : 0;
 
   return (
-    winRateScore * 0.4 +    // 40% weight on win rate
-    avgPnlScore * 0.3 +     // 30% weight on profitability
-    followerScore * 0.2 +   // 20% weight on community trust
-    signalScore * 0.1       // 10% weight on activity
+    winRateScore * 0.4 + // 40% weight on win rate
+    avgPnlScore * 0.3 + // 30% weight on profitability
+    followerScore * 0.2 + // 20% weight on community trust
+    signalScore * 0.1 // 10% weight on activity
   );
 };
 
@@ -73,16 +83,16 @@ const normalizeMetrics = (
  * Stats (totalMasters, avgWinRate, totalSignals, totalFollowers) are embedded in the response
  */
 const get_leaderboard = async (
-  timeframe: TimeframeType = 'all',
+  timeframe: TimeframeType = "all",
   page: number = DEFAULT_PAGE,
-  limit: number = DEFAULT_LIMIT
+  limit: number = DEFAULT_LIMIT,
 ) => {
   const { startDate } = getDateRange(timeframe);
   const skip = (page - 1) * limit;
 
   // Get all masters
   const masters = await Master_Model.find()
-    .populate('accountId', 'name email userProfileUrl')
+    .populate("accountId", "name email userProfileUrl")
     .sort({ followerCount: -1, winRate: -1 })
     .skip(skip)
     .limit(limit);
@@ -117,21 +127,31 @@ const get_leaderboard = async (
   // Get max metrics for normalization
   const maxMetrics: NormalizedMetrics = {
     winRate: Math.max(...allMastersForNormalization.map((m) => m.winRate), 1),
-    avgPnl: Math.max(...allMastersForNormalization.map((m) => Math.abs(m.avgPnl)), 1),
-    followerCount: Math.max(...allMastersForNormalization.map((m) => m.followerCount), 1),
-    totalSignals: Math.max(...allMastersForNormalization.map((m) => m.totalSignals), 1),
+    avgPnl: Math.max(
+      ...allMastersForNormalization.map((m) => Math.abs(m.avgPnl)),
+      1,
+    ),
+    followerCount: Math.max(
+      ...allMastersForNormalization.map((m) => m.followerCount),
+      1,
+    ),
+    totalSignals: Math.max(
+      ...allMastersForNormalization.map((m) => m.totalSignals),
+      1,
+    ),
   };
 
   // Calculate scores and enrich with rank
-  const masterAccountIds = masters.map(m => m.accountId._id);
+  const masterAccountIds = masters.map((m) => m.accountId._id);
   const referralCounts = await Referral_Model.aggregate([
     { $match: { referrerId: { $in: masterAccountIds }, status: "COMPLETED" } },
-    { $group: { _id: "$referrerId", count: { $sum: 1 } } }
+    { $group: { _id: "$referrerId", count: { $sum: 1 } } },
   ]);
 
   const referralBadgeMap: Record<string, string> = {};
-  referralCounts.forEach(rc => {
-    referralBadgeMap[rc._id.toString()] = referral_services.get_badge_by_referral_count(rc.count);
+  referralCounts.forEach((rc) => {
+    referralBadgeMap[rc._id.toString()] =
+      referral_services.get_badge_by_referral_count(rc.count);
   });
 
   const scoredMasters = masters.map((master) => {
@@ -156,7 +176,7 @@ const get_leaderboard = async (
       totalSignals: master.totalSignals,
       isFeatured: master.isFeatured,
       leaderboardScore: Math.round(score * 10000) / 100, // 0-100 scale
-      badgeName: referralBadgeMap[accountId] || "Rookie"
+      badgeName: referralBadgeMap[accountId] || "Rookie",
     };
   });
 
@@ -168,9 +188,17 @@ const get_leaderboard = async (
   const rest = scoredMasters.slice(3);
 
   // Calculate stats
-  const totalSignals = allMastersForNormalization.reduce((sum, m) => sum + m.totalSignals, 0);
-  const totalFollowers = allMastersForNormalization.reduce((sum, m) => sum + m.followerCount, 0);
-  const avgWinRate = allMastersForNormalization.reduce((sum, m) => sum + m.winRate, 0) / allMastersForNormalization.length;
+  const totalSignals = allMastersForNormalization.reduce(
+    (sum, m) => sum + m.totalSignals,
+    0,
+  );
+  const totalFollowers = allMastersForNormalization.reduce(
+    (sum, m) => sum + m.followerCount,
+    0,
+  );
+  const avgWinRate =
+    allMastersForNormalization.reduce((sum, m) => sum + m.winRate, 0) /
+    allMastersForNormalization.length;
 
   return {
     data: scoredMasters,
@@ -201,7 +229,7 @@ const get_user_rank = async (accountId: string) => {
   });
 
   if (!master) {
-    throw new AppError('Master profile not found', httpStatus.NOT_FOUND);
+    throw new AppError("Master profile not found", httpStatus.NOT_FOUND);
   }
 
   // Get all masters to calculate rank
@@ -243,7 +271,8 @@ const get_user_rank = async (accountId: string) => {
     referrerId: new Types.ObjectId(accountId),
     status: "COMPLETED",
   });
-  const badgeName = referral_services.get_badge_by_referral_count(activeReferrals);
+  const badgeName =
+    referral_services.get_badge_by_referral_count(activeReferrals);
 
   return {
     rank,

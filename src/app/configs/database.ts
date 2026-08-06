@@ -1,5 +1,5 @@
-import mongoose, { ConnectOptions } from 'mongoose';
-import logger from './logger';
+import mongoose, { ConnectOptions } from "mongoose";
+import logger from "./logger";
 
 interface DatabaseConfig {
   url: string;
@@ -27,9 +27,9 @@ class DatabaseConnection {
     const uri = baseUri.trim();
 
     // Validate URI format
-    if (!uri.startsWith('mongodb://') && !uri.startsWith('mongodb+srv://')) {
+    if (!uri.startsWith("mongodb://") && !uri.startsWith("mongodb+srv://")) {
       throw new Error(
-        'Invalid MongoDB URI. Must start with "mongodb://" or "mongodb+srv://"'
+        'Invalid MongoDB URI. Must start with "mongodb://" or "mongodb+srv://"',
       );
     }
 
@@ -43,7 +43,7 @@ class DatabaseConnection {
     return {
       // Connection pool settings
       maxPoolSize: 10, // Maximum number of connections in the pool
-      minPoolSize: 5,  // Minimum number of connections in the pool
+      minPoolSize: 5, // Minimum number of connections in the pool
       maxIdleTimeMS: 30000, // Maximum time a connection can be idle
 
       // Socket settings
@@ -61,7 +61,7 @@ class DatabaseConnection {
       retryReads: true,
 
       // Write concern (for replica sets)
-      w: 'majority',
+      w: "majority",
 
       // Avoid deprecated options warnings
       family: 4, // Use IPv4
@@ -73,7 +73,7 @@ class DatabaseConnection {
    */
   public async connect(dbUrl: string, maxRetries: number = 3): Promise<void> {
     if (this.isConnected) {
-      logger.info('Database already connected');
+      logger.info("Database already connected");
       return;
     }
 
@@ -86,22 +86,26 @@ class DatabaseConnection {
       try {
         await mongoose.connect(url, options);
         this.isConnected = true;
-        logger.info(`✅ Database connected successfully (attempt ${attempt}/${maxRetries})`);
-        
+        logger.info(
+          `✅ Database connected successfully (attempt ${attempt}/${maxRetries})`,
+        );
+
         // Log connection info (without sensitive data)
         const dbName = mongoose.connection.name;
         const host = mongoose.connection.host;
         logger.info(`📦 Database: ${dbName} | Host: ${host}`);
-        
+
         return;
       } catch (error) {
         lastError = error as Error;
-        logger.warn(`❌ Database connection attempt ${attempt}/${maxRetries} failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        
+        logger.warn(
+          `❌ Database connection attempt ${attempt}/${maxRetries} failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
+
         if (attempt < maxRetries) {
           const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Exponential backoff: 1s, 2s, 4s (max 5s)
           logger.info(`⏳ Retrying in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
@@ -117,16 +121,16 @@ class DatabaseConnection {
    */
   public async disconnect(): Promise<void> {
     if (!this.isConnected) {
-      logger.info('Database not connected');
+      logger.info("Database not connected");
       return;
     }
 
     try {
       await mongoose.connection.close();
       this.isConnected = false;
-      logger.info('🔌 Database disconnected');
+      logger.info("🔌 Database disconnected");
     } catch (error) {
-      logger.error('Error disconnecting from database:', error);
+      logger.error("Error disconnecting from database:", error);
       throw error;
     }
   }
@@ -151,27 +155,27 @@ class DatabaseConnection {
   public setupEventListeners(): void {
     const connection = mongoose.connection;
 
-    connection.on('error', (error) => {
-      logger.error('🔴 MongoDB connection error:', error);
+    connection.on("error", (error) => {
+      logger.error("🔴 MongoDB connection error:", error);
       this.isConnected = false;
     });
 
-    connection.on('disconnected', () => {
-      logger.warn('⚠️  MongoDB disconnected');
+    connection.on("disconnected", () => {
+      logger.warn("⚠️  MongoDB disconnected");
       this.isConnected = false;
     });
 
-    connection.on('reconnected', () => {
-      logger.info('✅ MongoDB reconnected');
+    connection.on("reconnected", () => {
+      logger.info("✅ MongoDB reconnected");
       this.isConnected = true;
     });
 
-    connection.on('timeout', () => {
-      logger.warn('⏰ MongoDB connection timeout');
+    connection.on("timeout", () => {
+      logger.warn("⏰ MongoDB connection timeout");
     });
 
-    connection.on('close', () => {
-      logger.info('🔒 MongoDB connection closed');
+    connection.on("close", () => {
+      logger.info("🔒 MongoDB connection closed");
       this.isConnected = false;
     });
   }

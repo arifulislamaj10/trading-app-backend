@@ -19,8 +19,9 @@ type PriceLevelFields = {
 };
 
 /** True when value is a real positive price (skips null/undefined/NaN/<=0 placeholders). */
-export const isProvidedPrice = (value: number | null | undefined): value is number =>
-  value != null && Number.isFinite(value) && value > 0;
+export const isProvidedPrice = (
+  value: number | null | undefined,
+): value is number => value != null && Number.isFinite(value) && value > 0;
 
 /**
  * Long: SL < entry, each target > entry
@@ -29,7 +30,7 @@ export const isProvidedPrice = (value: number | null | undefined): value is numb
  */
 export const refineSignalPriceLevels = (
   data: PriceLevelFields,
-  ctx: z.RefinementCtx
+  ctx: z.RefinementCtx,
 ) => {
   const { signalType, entryPrice, stopLoss } = data;
   if (signalType == null || !isProvidedPrice(entryPrice)) {
@@ -259,11 +260,9 @@ export const createSignalFromJsonSchema = z.object({
 // Loose JSON import: content is arbitrary user-provided JSON (object or raw string)
 // that AI maps to the signal schema before validation.
 export const extractSignalFromJsonSchema = z.object({
-  content: z
-    .unknown()
-    .refine((val) => val !== undefined && val !== null, {
-      message: "content is required",
-    }),
+  content: z.unknown().refine((val) => val !== undefined && val !== null, {
+    message: "content is required",
+  }),
   skipAiWorkflow: z.boolean().optional(),
 });
 

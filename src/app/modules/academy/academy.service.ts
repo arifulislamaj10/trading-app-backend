@@ -1,10 +1,7 @@
-import httpStatus from 'http-status';
-import { Types } from 'mongoose';
-import { AppError } from '../../utils/app_error';
-import {
-  Academy_Category_Model,
-  Academy_Video_Model,
-} from './academy.schema';
+import httpStatus from "http-status";
+import { Types } from "mongoose";
+import { AppError } from "../../utils/app_error";
+import { Academy_Category_Model, Academy_Video_Model } from "./academy.schema";
 
 const get_categories = async (includeInactive = false) => {
   const query = includeInactive ? {} : { isActive: true };
@@ -12,11 +9,13 @@ const get_categories = async (includeInactive = false) => {
 };
 
 const get_videos = async (categoryId?: string, includeInactive = false) => {
-  const query: Record<string, unknown> = includeInactive ? {} : { isActive: true };
+  const query: Record<string, unknown> = includeInactive
+    ? {}
+    : { isActive: true };
 
   if (categoryId) {
     if (!Types.ObjectId.isValid(categoryId)) {
-      throw new AppError('Invalid category ID', httpStatus.BAD_REQUEST);
+      throw new AppError("Invalid category ID", httpStatus.BAD_REQUEST);
     }
     query.categoryId = new Types.ObjectId(categoryId);
   }
@@ -37,7 +36,7 @@ const create_category = async (data: {
     });
   } catch (error: any) {
     if (error?.code === 11000) {
-      throw new AppError('Category name already exists', httpStatus.CONFLICT);
+      throw new AppError("Category name already exists", httpStatus.CONFLICT);
     }
     throw error;
   }
@@ -45,15 +44,15 @@ const create_category = async (data: {
 
 const update_category = async (
   id: string,
-  data: { name?: string; sortOrder?: number; isActive?: boolean }
+  data: { name?: string; sortOrder?: number; isActive?: boolean },
 ) => {
   if (!Types.ObjectId.isValid(id)) {
-    throw new AppError('Invalid category ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid category ID", httpStatus.BAD_REQUEST);
   }
 
   const category = await Academy_Category_Model.findById(id);
   if (!category) {
-    throw new AppError('Category not found', httpStatus.NOT_FOUND);
+    throw new AppError("Category not found", httpStatus.NOT_FOUND);
   }
 
   if (data.name !== undefined) category.name = data.name;
@@ -64,7 +63,7 @@ const update_category = async (
     await category.save();
   } catch (error: any) {
     if (error?.code === 11000) {
-      throw new AppError('Category name already exists', httpStatus.CONFLICT);
+      throw new AppError("Category name already exists", httpStatus.CONFLICT);
     }
     throw error;
   }
@@ -72,7 +71,7 @@ const update_category = async (
   if (data.name !== undefined) {
     await Academy_Video_Model.updateMany(
       { categoryId: category._id },
-      { $set: { categoryName: category.name } }
+      { $set: { categoryName: category.name } },
     );
   }
 
@@ -81,17 +80,17 @@ const update_category = async (
 
 const delete_category = async (id: string) => {
   if (!Types.ObjectId.isValid(id)) {
-    throw new AppError('Invalid category ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid category ID", httpStatus.BAD_REQUEST);
   }
 
   const category = await Academy_Category_Model.findByIdAndUpdate(
     id,
     { $set: { isActive: false } },
-    { new: true }
+    { new: true },
   );
 
   if (!category) {
-    throw new AppError('Category not found', httpStatus.NOT_FOUND);
+    throw new AppError("Category not found", httpStatus.NOT_FOUND);
   }
 
   return category;
@@ -107,22 +106,22 @@ const create_video = async (data: {
   isActive?: boolean;
 }) => {
   if (!Types.ObjectId.isValid(data.categoryId)) {
-    throw new AppError('Invalid category ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid category ID", httpStatus.BAD_REQUEST);
   }
 
   const category = await Academy_Category_Model.findById(data.categoryId);
   if (!category) {
-    throw new AppError('Category not found', httpStatus.NOT_FOUND);
+    throw new AppError("Category not found", httpStatus.NOT_FOUND);
   }
 
   const thumbnailUrl =
-    data.thumbnailUrl === '' || data.thumbnailUrl === undefined
+    data.thumbnailUrl === "" || data.thumbnailUrl === undefined
       ? null
       : data.thumbnailUrl;
 
   return Academy_Video_Model.create({
     title: data.title,
-    description: data.description ?? '',
+    description: data.description ?? "",
     youtubeUrl: data.youtubeUrl,
     thumbnailUrl,
     categoryId: category._id,
@@ -142,24 +141,24 @@ const update_video = async (
     categoryId?: string;
     durationSeconds?: number | null;
     isActive?: boolean;
-  }
+  },
 ) => {
   if (!Types.ObjectId.isValid(id)) {
-    throw new AppError('Invalid video ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid video ID", httpStatus.BAD_REQUEST);
   }
 
   const video = await Academy_Video_Model.findById(id);
   if (!video) {
-    throw new AppError('Video not found', httpStatus.NOT_FOUND);
+    throw new AppError("Video not found", httpStatus.NOT_FOUND);
   }
 
   if (data.categoryId !== undefined) {
     if (!Types.ObjectId.isValid(data.categoryId)) {
-      throw new AppError('Invalid category ID', httpStatus.BAD_REQUEST);
+      throw new AppError("Invalid category ID", httpStatus.BAD_REQUEST);
     }
     const category = await Academy_Category_Model.findById(data.categoryId);
     if (!category) {
-      throw new AppError('Category not found', httpStatus.NOT_FOUND);
+      throw new AppError("Category not found", httpStatus.NOT_FOUND);
     }
     video.categoryId = category._id;
     video.categoryName = category.name;
@@ -169,7 +168,7 @@ const update_video = async (
   if (data.description !== undefined) video.description = data.description;
   if (data.youtubeUrl !== undefined) video.youtubeUrl = data.youtubeUrl;
   if (data.thumbnailUrl !== undefined) {
-    video.thumbnailUrl = data.thumbnailUrl === '' ? null : data.thumbnailUrl;
+    video.thumbnailUrl = data.thumbnailUrl === "" ? null : data.thumbnailUrl;
   }
   if (data.durationSeconds !== undefined) {
     video.durationSeconds = data.durationSeconds;
@@ -182,17 +181,17 @@ const update_video = async (
 
 const delete_video = async (id: string) => {
   if (!Types.ObjectId.isValid(id)) {
-    throw new AppError('Invalid video ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid video ID", httpStatus.BAD_REQUEST);
   }
 
   const video = await Academy_Video_Model.findByIdAndUpdate(
     id,
     { $set: { isActive: false } },
-    { new: true }
+    { new: true },
   );
 
   if (!video) {
-    throw new AppError('Video not found', httpStatus.NOT_FOUND);
+    throw new AppError("Video not found", httpStatus.NOT_FOUND);
   }
 
   return video;

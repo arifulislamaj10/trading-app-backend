@@ -8,13 +8,13 @@ const router = Router();
 router.get(
   "/stats",
   auth(UserRole.ADMIN, UserRole.MASTER, UserRole.USER),
-  referral_controllers.get_referral_stats
+  referral_controllers.get_referral_stats,
 );
 
 router.get(
   "/history",
   auth(UserRole.ADMIN, UserRole.MASTER, UserRole.USER),
-  referral_controllers.get_referral_history
+  referral_controllers.get_referral_history,
 );
 
 export const referral_routes = router;

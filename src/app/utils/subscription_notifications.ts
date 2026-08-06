@@ -1,10 +1,10 @@
-import cron from 'node-cron';
-import { Account_Model } from '../modules/auth/auth.schema';
+import cron from "node-cron";
+import { Account_Model } from "../modules/auth/auth.schema";
 import { configs } from "../configs";
-import { Subscription_Model } from '../modules/subscription/subscription.schema';
-import { notification_services } from '../modules/notification/notification.service';
-import sendMail from './mail_sender';
-import logger from '../configs/logger';
+import { Subscription_Model } from "../modules/subscription/subscription.schema";
+import { notification_services } from "../modules/notification/notification.service";
+import sendMail from "./mail_sender";
+import logger from "../configs/logger";
 
 /**
  * Days before expiry to send notification
@@ -19,7 +19,7 @@ const sendExpiryNotification = async (
   email: string,
   name: string,
   daysRemaining: number,
-  tier: string
+  tier: string,
 ) => {
   const subject =
     daysRemaining === 1
@@ -27,15 +27,16 @@ const sendExpiryNotification = async (
       : `Your ${tier} subscription expires in ${daysRemaining} days`;
 
   const htmlBody = `
-    <p>Your <strong>${tier}</strong> subscription is expiring in <strong>${daysRemaining} day${daysRemaining > 1 ? 's' : ''}</strong>.</p>
+    <p>Your <strong>${tier}</strong> subscription is expiring in <strong>${daysRemaining} day${daysRemaining > 1 ? "s" : ""}</strong>.</p>
     <p style="margin-top: 16px;">
-      ${daysRemaining === 1
-        ? "Don't lose access to your trading features. Renew now to continue uninterrupted access."
-        : "Renew your subscription before it expires to keep access to all your trading features."
+      ${
+        daysRemaining === 1
+          ? "Don't lose access to your trading features. Renew now to continue uninterrupted access."
+          : "Renew your subscription before it expires to keep access to all your trading features."
       }
     </p>
     <p style="margin-top: 16px;">
-      <a href="${configs.jwt.front_end_url || process.env.FRONT_END_URL || 'http://localhost:3000'}/subscription/renew"
+      <a href="${configs.jwt.front_end_url || process.env.FRONT_END_URL || "http://localhost:3000"}/subscription/renew"
          style="display: inline-block; background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
         Renew Subscription
       </a>
@@ -54,20 +55,25 @@ const sendExpiryNotification = async (
       htmlBody,
       name,
     },
-    true
+    true,
   );
 
   // Create in-app notification as well
   await notification_services.create_notification({
     accountId,
-    type: 'subscription_expiring',
-    title: daysRemaining === 1 ? 'Subscription Expiring Tomorrow ⚠️' : `Subscription Expiring in ${daysRemaining} Days`,
-    message: `Your ${tier} subscription will expire in ${daysRemaining} day${daysRemaining > 1 ? 's' : ''}. Renew now to keep access to all features.`,
-    link: '/subscription/renew',
+    type: "subscription_expiring",
+    title:
+      daysRemaining === 1
+        ? "Subscription Expiring Tomorrow ⚠️"
+        : `Subscription Expiring in ${daysRemaining} Days`,
+    message: `Your ${tier} subscription will expire in ${daysRemaining} day${daysRemaining > 1 ? "s" : ""}. Renew now to keep access to all features.`,
+    link: "/subscription/renew",
     data: {
       daysRemaining,
       tier,
-      expiresAt: new Date(Date.now() + daysRemaining * 24 * 60 * 60 * 1000).toISOString(),
+      expiresAt: new Date(
+        Date.now() + daysRemaining * 24 * 60 * 60 * 1000,
+      ).toISOString(),
     },
   });
 };
@@ -91,7 +97,7 @@ const checkExpiringSubscriptions = async () => {
 
     // Find active subscriptions expiring within this day
     const expiringSubscriptions = await Subscription_Model.find({
-      status: { $in: ['active', 'trialing'] },
+      status: { $in: ["active", "trialing"] },
       cancelAtPeriodEnd: false, // Don't notify if already canceled
       currentPeriodEnd: { $gte: startOfDay, $lte: endOfDay },
     });
@@ -101,7 +107,9 @@ const checkExpiringSubscriptions = async () => {
         // Check if notification already sent for this billing period
         const periodEndMs = sub.currentPeriodEnd?.getTime();
         const alreadySent = (sub.expiryNotificationsSent || []).some(
-          (entry) => entry.daysBefore === days && entry.periodEnd?.getTime() === periodEndMs
+          (entry) =>
+            entry.daysBefore === days &&
+            entry.periodEnd?.getTime() === periodEndMs,
         );
         if (alreadySent) {
           continue;
@@ -113,14 +121,17 @@ const checkExpiringSubscriptions = async () => {
           continue;
         }
 
-        const tier = sub.planId.split('_')[0] || account.subscriptionTier || 'subscription';
+        const tier =
+          sub.planId.split("_")[0] ||
+          account.subscriptionTier ||
+          "subscription";
 
         await sendExpiryNotification(
           account._id.toString(),
           account.email,
           account.name,
           days,
-          tier
+          tier,
         );
 
         // Mark as notified
@@ -136,12 +147,12 @@ const checkExpiringSubscriptions = async () => {
 
         notificationCount++;
         logger.info(
-          `📧 Sent expiry notification to ${account.email} (${days} days remaining, subscription: ${sub._id})`
+          `📧 Sent expiry notification to ${account.email} (${days} days remaining, subscription: ${sub._id})`,
         );
       } catch (error: any) {
         errorCount++;
         logger.error(
-          `❌ Failed to send expiry notification for subscription ${sub._id}: ${error.message}`
+          `❌ Failed to send expiry notification for subscription ${sub._id}: ${error.message}`,
         );
       }
     }
@@ -149,7 +160,7 @@ const checkExpiringSubscriptions = async () => {
 
   if (notificationCount > 0 || errorCount > 0) {
     logger.info(
-      `🔄 Expiry notification check complete: ${notificationCount} sent, ${errorCount} errors`
+      `🔄 Expiry notification check complete: ${notificationCount} sent, ${errorCount} errors`,
     );
   }
 };
@@ -159,10 +170,10 @@ const checkExpiringSubscriptions = async () => {
  * Users get notified 7, 3, and 1 days before subscription expires
  */
 export const scheduleExpiryNotifications = () => {
-  cron.schedule('0 9 * * *', async () => {
-    logger.info('⏰ Running subscription expiry notification check...');
+  cron.schedule("0 9 * * *", async () => {
+    logger.info("⏰ Running subscription expiry notification check...");
     await checkExpiringSubscriptions();
   });
 
-  logger.info('📅 Expiry notifications scheduled (daily at 9:00 AM UTC)');
+  logger.info("📅 Expiry notifications scheduled (daily at 9:00 AM UTC)");
 };

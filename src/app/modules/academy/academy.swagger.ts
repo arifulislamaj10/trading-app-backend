@@ -1,141 +1,141 @@
 export const academySwaggerDocs = {
-  '/api/v1/academy/categories': {
+  "/api/v1/academy/categories": {
     get: {
-      tags: ['Academy'],
-      summary: 'List active academy categories',
+      tags: ["Academy"],
+      summary: "List active academy categories",
       security: [{ bearerAuth: [] }],
-      responses: { 200: { description: 'Active categories' } },
+      responses: { 200: { description: "Active categories" } },
     },
   },
-  '/api/v1/academy/videos': {
+  "/api/v1/academy/videos": {
     get: {
-      tags: ['Academy'],
-      summary: 'List active academy videos',
+      tags: ["Academy"],
+      summary: "List active academy videos",
       security: [{ bearerAuth: [] }],
       parameters: [
         {
-          name: 'categoryId',
-          in: 'query',
+          name: "categoryId",
+          in: "query",
           required: false,
-          schema: { type: 'string' },
+          schema: { type: "string" },
         },
       ],
-      responses: { 200: { description: 'Active videos' } },
+      responses: { 200: { description: "Active videos" } },
     },
   },
-  '/api/v1/admin/academy/categories': {
+  "/api/v1/admin/academy/categories": {
     get: {
-      tags: ['Admin Academy'],
-      summary: 'List all academy categories (including inactive)',
+      tags: ["Admin Academy"],
+      summary: "List all academy categories (including inactive)",
       security: [{ bearerAuth: [] }],
-      responses: { 200: { description: 'Categories' } },
+      responses: { 200: { description: "Categories" } },
     },
     post: {
-      tags: ['Admin Academy'],
-      summary: 'Create academy category',
+      tags: ["Admin Academy"],
+      summary: "Create academy category",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
         content: {
-          'application/json': {
+          "application/json": {
             schema: {
-              type: 'object',
-              required: ['name'],
+              type: "object",
+              required: ["name"],
               properties: {
-                name: { type: 'string', example: 'Forex' },
-                sortOrder: { type: 'number', example: 1 },
-                isActive: { type: 'boolean', example: true },
+                name: { type: "string", example: "Forex" },
+                sortOrder: { type: "number", example: 1 },
+                isActive: { type: "boolean", example: true },
               },
             },
           },
         },
       },
-      responses: { 201: { description: 'Category created' } },
+      responses: { 201: { description: "Category created" } },
     },
   },
-  '/api/v1/admin/academy/categories/{id}': {
+  "/api/v1/admin/academy/categories/{id}": {
     patch: {
-      tags: ['Admin Academy'],
-      summary: 'Update academy category',
+      tags: ["Admin Academy"],
+      summary: "Update academy category",
       security: [{ bearerAuth: [] }],
       parameters: [
-        { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        { name: "id", in: "path", required: true, schema: { type: "string" } },
       ],
-      responses: { 200: { description: 'Category updated' } },
+      responses: { 200: { description: "Category updated" } },
     },
     delete: {
-      tags: ['Admin Academy'],
-      summary: 'Soft-delete academy category (isActive=false)',
+      tags: ["Admin Academy"],
+      summary: "Soft-delete academy category (isActive=false)",
       security: [{ bearerAuth: [] }],
       parameters: [
-        { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        { name: "id", in: "path", required: true, schema: { type: "string" } },
       ],
-      responses: { 200: { description: 'Category deactivated' } },
+      responses: { 200: { description: "Category deactivated" } },
     },
   },
-  '/api/v1/admin/academy/videos': {
+  "/api/v1/admin/academy/videos": {
     get: {
-      tags: ['Admin Academy'],
-      summary: 'List all academy videos (including inactive)',
+      tags: ["Admin Academy"],
+      summary: "List all academy videos (including inactive)",
       security: [{ bearerAuth: [] }],
       parameters: [
         {
-          name: 'categoryId',
-          in: 'query',
+          name: "categoryId",
+          in: "query",
           required: false,
-          schema: { type: 'string' },
+          schema: { type: "string" },
         },
       ],
-      responses: { 200: { description: 'Videos' } },
+      responses: { 200: { description: "Videos" } },
     },
     post: {
-      tags: ['Admin Academy'],
-      summary: 'Create academy video',
+      tags: ["Admin Academy"],
+      summary: "Create academy video",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
         content: {
-          'application/json': {
+          "application/json": {
             schema: {
-              type: 'object',
-              required: ['title', 'youtubeUrl', 'categoryId'],
+              type: "object",
+              required: ["title", "youtubeUrl", "categoryId"],
               properties: {
-                title: { type: 'string' },
-                description: { type: 'string' },
+                title: { type: "string" },
+                description: { type: "string" },
                 youtubeUrl: {
-                  type: 'string',
-                  example: 'https://www.youtube.com/watch?v=XXXXXXXXXXX',
+                  type: "string",
+                  example: "https://www.youtube.com/watch?v=XXXXXXXXXXX",
                 },
-                thumbnailUrl: { type: 'string', nullable: true },
-                categoryId: { type: 'string' },
-                durationSeconds: { type: 'number', nullable: true },
-                isActive: { type: 'boolean' },
+                thumbnailUrl: { type: "string", nullable: true },
+                categoryId: { type: "string" },
+                durationSeconds: { type: "number", nullable: true },
+                isActive: { type: "boolean" },
               },
             },
           },
         },
       },
-      responses: { 201: { description: 'Video created' } },
+      responses: { 201: { description: "Video created" } },
     },
   },
-  '/api/v1/admin/academy/videos/{id}': {
+  "/api/v1/admin/academy/videos/{id}": {
     patch: {
-      tags: ['Admin Academy'],
-      summary: 'Update academy video',
+      tags: ["Admin Academy"],
+      summary: "Update academy video",
       security: [{ bearerAuth: [] }],
       parameters: [
-        { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        { name: "id", in: "path", required: true, schema: { type: "string" } },
       ],
-      responses: { 200: { description: 'Video updated' } },
+      responses: { 200: { description: "Video updated" } },
     },
     delete: {
-      tags: ['Admin Academy'],
-      summary: 'Soft-delete academy video (isActive=false)',
+      tags: ["Admin Academy"],
+      summary: "Soft-delete academy video (isActive=false)",
       security: [{ bearerAuth: [] }],
       parameters: [
-        { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        { name: "id", in: "path", required: true, schema: { type: "string" } },
       ],
-      responses: { 200: { description: 'Video deactivated' } },
+      responses: { 200: { description: "Video deactivated" } },
     },
   },
 };

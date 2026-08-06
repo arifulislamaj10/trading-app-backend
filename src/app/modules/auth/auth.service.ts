@@ -1,5 +1,10 @@
 import { AppError } from "../../utils/app_error";
-import { TAccount, TLoginPayload, TRegisterPayload, TTwoFASetup } from "./auth.interface";
+import {
+  TAccount,
+  TLoginPayload,
+  TRegisterPayload,
+  TTwoFASetup,
+} from "./auth.interface";
 import { Account_Model } from "./auth.schema";
 import httpStatus from "http-status";
 import { Document, Types } from "mongoose";
@@ -48,10 +53,12 @@ const generateOTP = (): string => {
  */
 const checkAccountLockout = (account: TAccount): void => {
   if (account.lockedUntil && account.lockedUntil > new Date()) {
-    const minutesLeft = Math.ceil((account.lockedUntil.getTime() - Date.now()) / 60000);
+    const minutesLeft = Math.ceil(
+      (account.lockedUntil.getTime() - Date.now()) / 60000,
+    );
     throw new AppError(
       `Account is locked due to too many failed attempts. Try again in ${minutesLeft} minutes`,
-      httpStatus.TOO_MANY_REQUESTS
+      httpStatus.TOO_MANY_REQUESTS,
     );
   }
 };
@@ -60,11 +67,13 @@ const checkAccountLockout = (account: TAccount): void => {
  * Handle failed login attempt
  */
 const handleFailedLogin = async (email: string): Promise<void> => {
-  const account = await Account_Model.findOne({ email }).select('+loginAttempts +lockedUntil');
-  
+  const account = await Account_Model.findOne({ email }).select(
+    "+loginAttempts +lockedUntil",
+  );
+
   if (account) {
     const attempts = (account.loginAttempts || 0) + 1;
-    
+
     if (attempts >= SECURITY_CONFIG.MAX_LOGIN_ATTEMPTS) {
       await Account_Model.findByIdAndUpdate(account._id, {
         loginAttempts: attempts,
@@ -84,7 +93,7 @@ const handleFailedLogin = async (email: string): Promise<void> => {
 const resetLoginAttempts = async (email: string): Promise<void> => {
   await Account_Model.findOneAndUpdate(
     { email },
-    { loginAttempts: 0, lockedUntil: null }
+    { loginAttempts: 0, lockedUntil: null },
   );
 };
 
@@ -99,7 +108,9 @@ const register_user_into_db = async (
 
   try {
     // Check if account already exists
-    const existingAccount = await Account_Model.findOne({ email: payload.email }).session(session);
+    const existingAccount = await Account_Model.findOne({
+      email: payload.email,
+    }).session(session);
 
     if (existingAccount) {
       throw new AppError(AUTH_ERRORS.ACCOUNT_EXISTS, httpStatus.BAD_REQUEST);
@@ -114,7 +125,9 @@ const register_user_into_db = async (
     // Check if referred by someone
     let referredBy: Types.ObjectId | undefined;
     if (payload.referralCode) {
-      const referrer = await Account_Model.findOne({ referralCode: payload.referralCode }).session(session);
+      const referrer = await Account_Model.findOne({
+        referralCode: payload.referralCode,
+      }).session(session);
       if (referrer) {
         referredBy = referrer._id;
       }
@@ -129,16 +142,23 @@ const register_user_into_db = async (
       referredBy: referredBy as any,
     };
 
-    const newAccount = await Account_Model.create([accountPayload], { session });
+    const newAccount = await Account_Model.create([accountPayload], {
+      session,
+    });
 
     // If referred by someone, create a referral record
     if (referredBy) {
-      await Referral_Model.create([{
-        referrerId: referredBy,
-        inviteeId: newAccount[0]._id,
-        status: 'PENDING',
-        rewardAmount: 0, // Rewards might be calculated later upon subscription/completion
-      }], { session });
+      await Referral_Model.create(
+        [
+          {
+            referrerId: referredBy,
+            inviteeId: newAccount[0]._id,
+            status: "PENDING",
+            rewardAmount: 0, // Rewards might be calculated later upon subscription/completion
+          },
+        ],
+        { session },
+      );
     }
 
     // Generate verification code
@@ -148,7 +168,7 @@ const register_user_into_db = async (
     await Account_Model.findByIdAndUpdate(
       newAccount[0]._id,
       { verificationCode, verificationCodeExpires },
-      { session }
+      { session },
     );
 
     await session.commitTransaction();
@@ -157,8 +177,8 @@ const register_user_into_db = async (
     // Send verification email (non-blocking)
     sendMail({
       to: payload.email,
-      subject: 'Verify Your Email',
-      textBody: 'Your email verification code',
+      subject: "Verify Your Email",
+      textBody: "Your email verification code",
       name: payload.name,
       htmlBody: `
         <p>Thanks for creating an account with us! Please use the following code to verify your email:</p>
@@ -169,7 +189,6 @@ const register_user_into_db = async (
     });
 
     return newAccount;
-
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
@@ -180,15 +199,23 @@ const register_user_into_db = async (
 /**
  * Login user with email, password, and optional 2FA
  */
-const login_user_from_db = async (payload: TLoginPayload): Promise<LoginReturnType> => {
+const login_user_from_db = async (
+  payload: TLoginPayload,
+): Promise<LoginReturnType> => {
   try {
     // Find account with sensitive fields
-    const account = await Account_Model.findOne({ email: payload.email })
-      .select('+password +twoFactorEnabled +twoFactorSecret +loginAttempts +lockedUntil');
-    
+    const account = await Account_Model.findOne({
+      email: payload.email,
+    }).select(
+      "+password +twoFactorEnabled +twoFactorSecret +loginAttempts +lockedUntil",
+    );
+
     if (!account) {
       await handleFailedLogin(payload.email);
-      throw new AppError(AUTH_ERRORS.INVALID_CREDENTIALS, httpStatus.UNAUTHORIZED);
+      throw new AppError(
+        AUTH_ERRORS.INVALID_CREDENTIALS,
+        httpStatus.UNAUTHORIZED,
+      );
     }
 
     // Check account lockout
@@ -206,21 +233,34 @@ const login_user_from_db = async (payload: TLoginPayload): Promise<LoginReturnTy
     }
 
     // Verify password
-    const isPasswordMatch = await comparePassword(payload.password, account.password);
+    const isPasswordMatch = await comparePassword(
+      payload.password,
+      account.password,
+    );
     if (!isPasswordMatch) {
       await handleFailedLogin(payload.email);
-      throw new AppError(AUTH_ERRORS.INVALID_CREDENTIALS, httpStatus.UNAUTHORIZED);
+      throw new AppError(
+        AUTH_ERRORS.INVALID_CREDENTIALS,
+        httpStatus.UNAUTHORIZED,
+      );
     }
 
     // Check if 2FA is enabled
     if (account.twoFactorEnabled) {
       if (!payload.twoFactorCode) {
-        throw new AppError(AUTH_ERRORS.TWO_FA_REQUIRED, httpStatus.UNAUTHORIZED, {
-          requiresTwoFactor: true,
-        });
+        throw new AppError(
+          AUTH_ERRORS.TWO_FA_REQUIRED,
+          httpStatus.UNAUTHORIZED,
+          {
+            requiresTwoFactor: true,
+          },
+        );
       }
-      
-      const isTOTPValid = verifyTOTP(payload.twoFactorCode, account.twoFactorSecret!);
+
+      const isTOTPValid = verifyTOTP(
+        payload.twoFactorCode,
+        account.twoFactorSecret!,
+      );
       if (!isTOTPValid) {
         await handleFailedLogin(payload.email);
         throw new AppError(AUTH_ERRORS.TWO_FA_INVALID, httpStatus.UNAUTHORIZED);
@@ -232,44 +272,56 @@ const login_user_from_db = async (payload: TLoginPayload): Promise<LoginReturnTy
 
     // Generate tokens with userId, email, and role
     const accessToken = jwtHelpers.generateToken(
-      { userId: account._id.toString(), email: account.email, role: account.role || 'USER' },
+      {
+        userId: account._id.toString(),
+        email: account.email,
+        role: account.role || "USER",
+      },
       configs.jwt.access_token as Secret,
-      TOKEN_EXPIRY.ACCESS
+      TOKEN_EXPIRY.ACCESS,
     );
 
     const refreshToken = jwtHelpers.generateToken(
-      { userId: account._id.toString(), email: account.email, role: account.role || 'USER' },
+      {
+        userId: account._id.toString(),
+        email: account.email,
+        role: account.role || "USER",
+      },
       configs.jwt.refresh_token as Secret,
-      TOKEN_EXPIRY.REFRESH
+      TOKEN_EXPIRY.REFRESH,
     );
 
     return {
       accessToken,
       refreshToken,
-      role: account.role || 'USER',
+      role: account.role || "USER",
       requiresTwoFactor: account.twoFactorEnabled,
     };
-    
   } catch (error) {
     if (error instanceof AppError) throw error;
-    throw new AppError(AUTH_ERRORS.INVALID_CREDENTIALS, httpStatus.UNAUTHORIZED);
+    throw new AppError(
+      AUTH_ERRORS.INVALID_CREDENTIALS,
+      httpStatus.UNAUTHORIZED,
+    );
   }
 };
 
 /**
  * Get current user profile
  */
-const get_my_profile_from_db = async (email: string): Promise<Omit<TAccount, 'password'>> => {
-  const account = await Account_Model.findOne({ email }).select('-password');
+const get_my_profile_from_db = async (
+  email: string,
+): Promise<Omit<TAccount, "password">> => {
+  const account = await Account_Model.findOne({ email }).select("-password");
 
   if (!account) {
     throw new AppError(AUTH_ERRORS.ACCOUNT_NOT_FOUND, httpStatus.NOT_FOUND);
   }
 
   const roleLabels: Record<string, string> = {
-    USER: 'User',
-    MASTER: 'Master Trader',
-    ADMIN: 'Admin',
+    USER: "User",
+    MASTER: "Master Trader",
+    ADMIN: "Admin",
   };
 
   const profile = account.toObject();
@@ -278,19 +330,24 @@ const get_my_profile_from_db = async (email: string): Promise<Omit<TAccount, 'pa
     status: account.accountStatus,
     has2FA: account.twoFactorEnabled ?? false,
     isEmailVerified: account.isVerified ?? false,
-    roleLabel: account.role ? roleLabels[account.role] || account.role : 'User',
-    isMasterTrader: account.role === 'MASTER',
-  } as unknown as Omit<TAccount, 'password'>;
+    roleLabel: account.role ? roleLabels[account.role] || account.role : "User",
+    isMasterTrader: account.role === "MASTER",
+  } as unknown as Omit<TAccount, "password">;
 };
 
 /**
  * Refresh access token with token rotation
  */
-const refresh_token_from_db = async (token: string): Promise<{ accessToken: string; refreshToken: string }> => {
+const refresh_token_from_db = async (
+  token: string,
+): Promise<{ accessToken: string; refreshToken: string }> => {
   let decodedData: JwtPayloadType;
-  
+
   try {
-    decodedData = await jwtHelpers.verifyToken(token, configs.jwt.refresh_token as Secret);
+    decodedData = await jwtHelpers.verifyToken(
+      token,
+      configs.jwt.refresh_token as Secret,
+    );
   } catch (err) {
     throw new AppError(AUTH_ERRORS.INVALID_TOKEN, httpStatus.UNAUTHORIZED);
   }
@@ -308,15 +365,23 @@ const refresh_token_from_db = async (token: string): Promise<{ accessToken: stri
   await jwtHelpers.blacklistToken(token, TOKEN_EXPIRY.REFRESH);
 
   const accessToken = jwtHelpers.generateToken(
-    { userId: userData._id.toString(), email: userData.email, role: userData.role || 'USER' },
+    {
+      userId: userData._id.toString(),
+      email: userData.email,
+      role: userData.role || "USER",
+    },
     configs.jwt.access_token as Secret,
-    TOKEN_EXPIRY.ACCESS
+    TOKEN_EXPIRY.ACCESS,
   );
 
   const refreshToken = jwtHelpers.generateToken(
-    { userId: userData._id.toString(), email: userData.email, role: userData.role || 'USER' },
+    {
+      userId: userData._id.toString(),
+      email: userData.email,
+      role: userData.role || "USER",
+    },
     configs.jwt.refresh_token as Secret,
-    TOKEN_EXPIRY.REFRESH
+    TOKEN_EXPIRY.REFRESH,
   );
 
   return { accessToken, refreshToken };
@@ -327,17 +392,29 @@ const refresh_token_from_db = async (token: string): Promise<{ accessToken: stri
  */
 const change_password_from_db = async (
   user: JwtPayloadType,
-  payload: { oldPassword: string; newPassword: string; confirmNewPassword: string },
+  payload: {
+    oldPassword: string;
+    newPassword: string;
+    confirmNewPassword: string;
+  },
 ): Promise<string> => {
-  const account = await Account_Model.findOne({ email: user.email }).select('+password');
+  const account = await Account_Model.findOne({ email: user.email }).select(
+    "+password",
+  );
 
   if (!account) {
     throw new AppError(AUTH_ERRORS.ACCOUNT_NOT_FOUND, httpStatus.NOT_FOUND);
   }
 
-  const isCorrectPassword = await comparePassword(payload.oldPassword, account.password);
+  const isCorrectPassword = await comparePassword(
+    payload.oldPassword,
+    account.password,
+  );
   if (!isCorrectPassword) {
-    throw new AppError(AUTH_ERRORS.INVALID_OLD_PASSWORD, httpStatus.UNAUTHORIZED);
+    throw new AppError(
+      AUTH_ERRORS.INVALID_OLD_PASSWORD,
+      httpStatus.UNAUTHORIZED,
+    );
   }
 
   if (payload.newPassword !== payload.confirmNewPassword) {
@@ -345,7 +422,10 @@ const change_password_from_db = async (
   }
 
   if (payload.oldPassword === payload.newPassword) {
-    throw new AppError("New password must be different from your current password", httpStatus.BAD_REQUEST);
+    throw new AppError(
+      "New password must be different from your current password",
+      httpStatus.BAD_REQUEST,
+    );
   }
 
   const hashedPassword = await hashPassword(payload.newPassword);
@@ -355,7 +435,7 @@ const change_password_from_db = async (
     {
       password: hashedPassword,
       lastPasswordChange: new Date(),
-    }
+    },
   );
 
   return AUTH_ERRORS.PASSWORD_CHANGED;
@@ -384,8 +464,8 @@ const forget_password_from_db = async (email: string): Promise<string> => {
   // Send password reset email (non-blocking)
   sendMail({
     to: email,
-    subject: 'Password Reset Request',
-    textBody: 'Your password reset code',
+    subject: "Password Reset Request",
+    textBody: "Your password reset code",
     htmlBody: `
       <p>You requested a password reset. Use the following code to reset your password:</p>
       <h2 style="text-align: center; color: #4CAF50; font-size: 32px; margin: 20px 0;">${otp}</h2>
@@ -405,7 +485,9 @@ const reset_password_from_db = async (
   verificationCode: string,
   newPassword: string,
 ): Promise<string> => {
-  const account = await Account_Model.findOne({ email }).select('+resetPasswordCode +resetPasswordExpire');
+  const account = await Account_Model.findOne({ email }).select(
+    "+resetPasswordCode +resetPasswordExpire",
+  );
 
   if (!account) {
     throw new AppError(AUTH_ERRORS.ACCOUNT_NOT_FOUND, httpStatus.NOT_FOUND);
@@ -432,7 +514,7 @@ const reset_password_from_db = async (
       lastPasswordChange: new Date(),
       resetPasswordCode: undefined,
       resetPasswordExpire: undefined,
-    }
+    },
   );
 
   return AUTH_ERRORS.PASSWORD_RESET;
@@ -445,7 +527,9 @@ const verify_email_from_db = async (
   email: string,
   verificationCode: string,
 ): Promise<string> => {
-  const account = await Account_Model.findOne({ email }).select('+verificationCode +verificationCodeExpires');
+  const account = await Account_Model.findOne({ email }).select(
+    "+verificationCode +verificationCodeExpires",
+  );
 
   if (!account) {
     throw new AppError(AUTH_ERRORS.ACCOUNT_NOT_FOUND, httpStatus.NOT_FOUND);
@@ -468,7 +552,7 @@ const verify_email_from_db = async (
       isVerified: true,
       verificationCode: undefined,
       verificationCodeExpires: undefined,
-    }
+    },
   );
 
   return AUTH_ERRORS.ACCOUNT_VERIFIED;
@@ -477,7 +561,9 @@ const verify_email_from_db = async (
 /**
  * Resend verification email
  */
-const resend_verification_email_from_db = async (email: string): Promise<string> => {
+const resend_verification_email_from_db = async (
+  email: string,
+): Promise<string> => {
   const account = await Account_Model.findOne({ email });
 
   if (!account) {
@@ -485,7 +571,7 @@ const resend_verification_email_from_db = async (email: string): Promise<string>
   }
 
   if (account.isVerified) {
-    throw new AppError('Account is already verified', httpStatus.BAD_REQUEST);
+    throw new AppError("Account is already verified", httpStatus.BAD_REQUEST);
   }
 
   // Generate new verification code
@@ -494,14 +580,14 @@ const resend_verification_email_from_db = async (email: string): Promise<string>
 
   await Account_Model.findOneAndUpdate(
     { email: account.email },
-    { verificationCode, verificationCodeExpires }
+    { verificationCode, verificationCodeExpires },
   );
 
   // Send verification email (non-blocking)
   sendMail({
     to: email,
-    subject: 'Verify Your Email',
-    textBody: 'Your email verification code',
+    subject: "Verify Your Email",
+    textBody: "Your email verification code",
     htmlBody: `
       <p>Your new verification code is:</p>
       <h2 style="text-align: center; color: #4CAF50; font-size: 32px; margin: 20px 0;">${verificationCode}</h2>
@@ -515,8 +601,11 @@ const resend_verification_email_from_db = async (email: string): Promise<string>
 /**
  * Setup 2FA for user
  */
-const setup_two_factor_from_db = async (email: string, password: string): Promise<TTwoFASetup> => {
-  const account = await Account_Model.findOne({ email }).select('+password');
+const setup_two_factor_from_db = async (
+  email: string,
+  password: string,
+): Promise<TTwoFASetup> => {
+  const account = await Account_Model.findOne({ email }).select("+password");
 
   if (!account) {
     throw new AppError(AUTH_ERRORS.ACCOUNT_NOT_FOUND, httpStatus.NOT_FOUND);
@@ -529,7 +618,10 @@ const setup_two_factor_from_db = async (email: string, password: string): Promis
   }
 
   if (account.twoFactorEnabled) {
-    throw new AppError(AUTH_ERRORS.TWO_FA_ALREADY_ENABLED, httpStatus.BAD_REQUEST);
+    throw new AppError(
+      AUTH_ERRORS.TWO_FA_ALREADY_ENABLED,
+      httpStatus.BAD_REQUEST,
+    );
   }
 
   // Generate 2FA secret
@@ -543,7 +635,7 @@ const setup_two_factor_from_db = async (email: string, password: string): Promis
     {
       twoFactorSecret: secret,
       twoFactorBackupCodes: backupCodes,
-    }
+    },
   );
 
   return {
@@ -560,18 +652,23 @@ const enable_two_factor_from_db = async (
   email: string,
   twoFactorCode: string,
 ): Promise<string> => {
-  const account = await Account_Model.findOne({ email }).select('+twoFactorSecret');
+  const account = await Account_Model.findOne({ email }).select(
+    "+twoFactorSecret",
+  );
 
   if (!account) {
     throw new AppError(AUTH_ERRORS.ACCOUNT_NOT_FOUND, httpStatus.NOT_FOUND);
   }
 
   if (!account.twoFactorSecret) {
-    throw new AppError('Please setup 2FA first', httpStatus.BAD_REQUEST);
+    throw new AppError("Please setup 2FA first", httpStatus.BAD_REQUEST);
   }
 
   if (account.twoFactorEnabled) {
-    throw new AppError(AUTH_ERRORS.TWO_FA_ALREADY_ENABLED, httpStatus.BAD_REQUEST);
+    throw new AppError(
+      AUTH_ERRORS.TWO_FA_ALREADY_ENABLED,
+      httpStatus.BAD_REQUEST,
+    );
   }
 
   // Verify TOTP
@@ -583,7 +680,7 @@ const enable_two_factor_from_db = async (
   // Enable 2FA
   await Account_Model.findOneAndUpdate(
     { email: account.email },
-    { twoFactorEnabled: true }
+    { twoFactorEnabled: true },
   );
 
   return AUTH_ERRORS.TWO_FA_ENABLED_SUCCESS;
@@ -596,7 +693,9 @@ const disable_two_factor_from_db = async (
   email: string,
   twoFactorCode: string,
 ): Promise<string> => {
-  const account = await Account_Model.findOne({ email }).select('+twoFactorSecret +twoFactorEnabled');
+  const account = await Account_Model.findOne({ email }).select(
+    "+twoFactorSecret +twoFactorEnabled",
+  );
 
   if (!account) {
     throw new AppError(AUTH_ERRORS.ACCOUNT_NOT_FOUND, httpStatus.NOT_FOUND);
@@ -619,7 +718,7 @@ const disable_two_factor_from_db = async (
       twoFactorEnabled: false,
       twoFactorSecret: undefined,
       twoFactorBackupCodes: undefined,
-    }
+    },
   );
 
   return AUTH_ERRORS.TWO_FA_DISABLED_SUCCESS;
@@ -632,8 +731,9 @@ const use_backup_code_from_db = async (
   email: string,
   backupCode: string,
 ): Promise<LoginReturnType> => {
-  const account = await Account_Model.findOne({ email })
-    .select('+password +twoFactorEnabled +twoFactorSecret +twoFactorBackupCodes');
+  const account = await Account_Model.findOne({ email }).select(
+    "+password +twoFactorEnabled +twoFactorSecret +twoFactorBackupCodes",
+  );
 
   if (!account) {
     throw new AppError(AUTH_ERRORS.ACCOUNT_NOT_FOUND, httpStatus.NOT_FOUND);
@@ -650,29 +750,39 @@ const use_backup_code_from_db = async (
   }
 
   // Remove used backup code
-  const remainingCodes = account.twoFactorBackupCodes?.filter(code => code !== backupCode);
+  const remainingCodes = account.twoFactorBackupCodes?.filter(
+    (code) => code !== backupCode,
+  );
   await Account_Model.findOneAndUpdate(
     { email: account.email },
-    { twoFactorBackupCodes: remainingCodes }
+    { twoFactorBackupCodes: remainingCodes },
   );
 
   // Generate tokens with userId, email, and role
   const accessToken = jwtHelpers.generateToken(
-    { userId: account._id.toString(), email: account.email, role: account.role || 'USER' },
+    {
+      userId: account._id.toString(),
+      email: account.email,
+      role: account.role || "USER",
+    },
     configs.jwt.access_token as Secret,
-    TOKEN_EXPIRY.ACCESS
+    TOKEN_EXPIRY.ACCESS,
   );
 
   const refreshToken = jwtHelpers.generateToken(
-    { userId: account._id.toString(), email: account.email, role: account.role || 'USER' },
+    {
+      userId: account._id.toString(),
+      email: account.email,
+      role: account.role || "USER",
+    },
     configs.jwt.refresh_token as Secret,
-    TOKEN_EXPIRY.REFRESH
+    TOKEN_EXPIRY.REFRESH,
   );
 
   return {
     accessToken,
     refreshToken,
-    role: account.role || 'USER',
+    role: account.role || "USER",
     requiresTwoFactor: true,
   };
 };
@@ -684,10 +794,14 @@ const logout_user_from_db = async (
   accessToken: string,
   refreshToken?: string,
 ): Promise<string> => {
-  const blacklistTasks = [jwtHelpers.blacklistToken(accessToken, TOKEN_EXPIRY.ACCESS)];
+  const blacklistTasks = [
+    jwtHelpers.blacklistToken(accessToken, TOKEN_EXPIRY.ACCESS),
+  ];
 
   if (refreshToken) {
-    blacklistTasks.push(jwtHelpers.blacklistToken(refreshToken, TOKEN_EXPIRY.REFRESH));
+    blacklistTasks.push(
+      jwtHelpers.blacklistToken(refreshToken, TOKEN_EXPIRY.REFRESH),
+    );
   }
 
   await Promise.all(blacklistTasks);

@@ -1,17 +1,17 @@
-import { Types } from 'mongoose';
-import httpStatus from 'http-status';
-import { AppError } from '../../utils/app_error';
-import { Account_Model } from '../auth/auth.schema';
-import { badge_services } from '../badge/badge.service';
-import { notification_services } from '../notification/notification.service';
-import { audit_services } from '../audit/audit.service';
+import { Types } from "mongoose";
+import httpStatus from "http-status";
+import { AppError } from "../../utils/app_error";
+import { Account_Model } from "../auth/auth.schema";
+import { badge_services } from "../badge/badge.service";
+import { notification_services } from "../notification/notification.service";
+import { audit_services } from "../audit/audit.service";
 import {
   TRAINING_LESSONS,
   TRAINING_PASS_SCORE,
   TRAINING_QUIZ_QUESTIONS,
-} from './training.constants';
-import { Training_Progress_Model } from './training.schema';
-import logger from '../../configs/logger';
+} from "./training.constants";
+import { Training_Progress_Model } from "./training.schema";
+import logger from "../../configs/logger";
 
 const getOrCreateProgress = async (accountId: string) => {
   let progress = await Training_Progress_Model.findOne({
@@ -60,7 +60,7 @@ const buildProgressResponse = (progress: {
 const get_training = async (accountId: string) => {
   const progress = await getOrCreateProgress(accountId);
   const account = await Account_Model.findById(accountId).select(
-    'tradingUnlocked trainingCompletedAt role'
+    "tradingUnlocked trainingCompletedAt role",
   );
 
   return {
@@ -87,7 +87,7 @@ const complete_all_lessons = async (accountId: string) => {
 const complete_lesson = async (accountId: string, lessonId: string) => {
   const lesson = TRAINING_LESSONS.find((l) => l.lessonId === lessonId);
   if (!lesson) {
-    throw new AppError('Lesson not found', httpStatus.NOT_FOUND);
+    throw new AppError("Lesson not found", httpStatus.NOT_FOUND);
   }
 
   const progress = await getOrCreateProgress(accountId);
@@ -107,37 +107,43 @@ const unlockTradingForUser = async (accountId: string) => {
   });
 
   try {
-    await badge_services.award_badge(accountId, 'training_complete');
+    await badge_services.award_badge(accountId, "training_complete");
   } catch (err) {
-    logger.warn('Training badge award failed', { accountId, err });
+    logger.warn("Training badge award failed", { accountId, err });
   }
 
   try {
     await notification_services.create_notification({
       accountId,
-      type: 'training_completed',
-      title: 'Training Complete',
-      message: 'You completed platform training. Trading is now unlocked!',
-      link: '/training',
-      data: { badgeKey: 'training_complete' },
+      type: "training_completed",
+      title: "Training Complete",
+      message: "You completed platform training. Trading is now unlocked!",
+      link: "/training",
+      data: { badgeKey: "training_complete" },
     });
 
     await notification_services.create_notification({
       accountId,
-      type: 'trading_unlocked',
-      title: 'Trading Unlocked',
-      message: 'You can now copy signals and log trades in your journal.',
-      link: '/copied-trades',
+      type: "trading_unlocked",
+      title: "Trading Unlocked",
+      message: "You can now copy signals and log trades in your journal.",
+      link: "/copied-trades",
       data: {},
     });
   } catch (err) {
-    logger.warn('Training notifications failed', { accountId, err });
+    logger.warn("Training notifications failed", { accountId, err });
   }
 
   try {
-    await audit_services.log('training_completed', accountId, 'account', accountId, {});
+    await audit_services.log(
+      "training_completed",
+      accountId,
+      "account",
+      accountId,
+      {},
+    );
   } catch (err) {
-    logger.warn('Training audit log failed', { accountId, err });
+    logger.warn("Training audit log failed", { accountId, err });
   }
 };
 
@@ -148,10 +154,10 @@ export interface CompleteTrainingOptions {
 
 const complete_training = async (
   accountId: string,
-  options: CompleteTrainingOptions = {}
+  options: CompleteTrainingOptions = {},
 ) => {
   const account = await Account_Model.findById(accountId).select(
-    'tradingUnlocked trainingCompletedAt'
+    "tradingUnlocked trainingCompletedAt",
   );
 
   if (account?.tradingUnlocked || account?.trainingCompletedAt) {
@@ -159,7 +165,7 @@ const complete_training = async (
     return {
       ...buildProgressResponse(progress),
       tradingUnlocked: true,
-      message: 'Training already completed. Trading is unlocked.',
+      message: "Training already completed. Trading is unlocked.",
       alreadyCompleted: true,
     };
   }
@@ -170,7 +176,10 @@ const complete_training = async (
       : TRAINING_PASS_SCORE;
 
   if (quizScore < 0 || quizScore > 100) {
-    throw new AppError('Quiz score must be between 0 and 100', httpStatus.BAD_REQUEST);
+    throw new AppError(
+      "Quiz score must be between 0 and 100",
+      httpStatus.BAD_REQUEST,
+    );
   }
 
   let progress = await getOrCreateProgress(accountId);
@@ -180,13 +189,13 @@ const complete_training = async (
   }
 
   const missingLessons = TRAINING_LESSONS.filter(
-    (l) => !progress.lessonsCompleted.includes(l.lessonId)
+    (l) => !progress.lessonsCompleted.includes(l.lessonId),
   );
 
   if (missingLessons.length > 0) {
     throw new AppError(
-      `Complete all lessons before the final quiz. Missing: ${missingLessons.map((l) => l.lessonId).join(', ')}. Or send markAllLessonsComplete: true.`,
-      httpStatus.BAD_REQUEST
+      `Complete all lessons before the final quiz. Missing: ${missingLessons.map((l) => l.lessonId).join(", ")}. Or send markAllLessonsComplete: true.`,
+      httpStatus.BAD_REQUEST,
     );
   }
 
@@ -197,7 +206,7 @@ const complete_training = async (
     await progress.save();
     throw new AppError(
       `Quiz score ${quizScore}% is below the pass mark of ${TRAINING_PASS_SCORE}%. Please try again.`,
-      httpStatus.BAD_REQUEST
+      httpStatus.BAD_REQUEST,
     );
   }
 
@@ -209,7 +218,7 @@ const complete_training = async (
   return {
     ...buildProgressResponse(progress),
     tradingUnlocked: true,
-    message: 'Training completed successfully. Trading is now unlocked.',
+    message: "Training completed successfully. Trading is now unlocked.",
     alreadyCompleted: false,
   };
 };

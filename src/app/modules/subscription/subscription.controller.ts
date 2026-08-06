@@ -1,8 +1,8 @@
-import { Request, Response } from 'express';
-import catchAsync from '../../utils/catch_async';
-import manageResponse from '../../utils/manage_response';
-import httpStatus from 'http-status';
-import { subscription_services } from './subscription.service';
+import { Request, Response } from "express";
+import catchAsync from "../../utils/catch_async";
+import manageResponse from "../../utils/manage_response";
+import httpStatus from "http-status";
+import { subscription_services } from "./subscription.service";
 
 const get_all_plans = catchAsync(async (req: Request, res: Response) => {
   const plans = await subscription_services.get_all_plans();
@@ -10,65 +10,79 @@ const get_all_plans = catchAsync(async (req: Request, res: Response) => {
   manageResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: 'Subscription plans retrieved successfully',
+    message: "Subscription plans retrieved successfully",
     data: plans,
   });
 });
 
-const create_checkout_session = catchAsync(async (req: Request, res: Response) => {
-  const { planId, returnUrl } = req.body;
-  const user = req.user!;
+const create_checkout_session = catchAsync(
+  async (req: Request, res: Response) => {
+    const { planId, returnUrl } = req.body;
+    const user = req.user!;
 
-  const result = await subscription_services.create_checkout_session(
-    user.userId,
-    planId,
-    returnUrl
-  );
+    const result = await subscription_services.create_checkout_session(
+      user.userId,
+      planId,
+      returnUrl,
+    );
 
-  manageResponse(res, {
-    success: true,
-    statusCode: httpStatus.OK,
-    message: 'Checkout session created successfully',
-    data: result,
-  });
-});
-
-const get_current_subscription = catchAsync(async (req: Request, res: Response) => {
-  const user = req.user!;
-
-  const result = await subscription_services.get_current_subscription(user.userId);
-
-  manageResponse(res, {
-    success: true,
-    statusCode: httpStatus.OK,
-    message: 'Subscription details retrieved successfully',
-    data: result,
-  });
-});
-
-const update_subscription_status = catchAsync(async (req: Request, res: Response) => {
-  const user = req.user!;
-  const { action } = req.body;
-
-  if (!action || !['cancel', 'resume'].includes(action)) {
     manageResponse(res, {
-      success: false,
-      statusCode: httpStatus.BAD_REQUEST,
-      message: "Action is required. Use 'cancel' or 'resume'",
-      data: null,
+      success: true,
+      statusCode: httpStatus.OK,
+      message: "Checkout session created successfully",
+      data: result,
     });
-    return;
-  }
+  },
+);
 
-  const result = await subscription_services.update_subscription_status(user.userId, action);
+const get_current_subscription = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user!;
 
-  manageResponse(res, {
-    success: true,
-    statusCode: httpStatus.OK,
-    message: result.message,
-    data: { currentPeriodEnd: result.currentPeriodEnd, nextBillingDate: result.nextBillingDate },
-  });
-});
+    const result = await subscription_services.get_current_subscription(
+      user.userId,
+    );
+
+    manageResponse(res, {
+      success: true,
+      statusCode: httpStatus.OK,
+      message: "Subscription details retrieved successfully",
+      data: result,
+    });
+  },
+);
+
+const update_subscription_status = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user!;
+    const { action } = req.body;
+
+    if (!action || !["cancel", "resume"].includes(action)) {
+      manageResponse(res, {
+        success: false,
+        statusCode: httpStatus.BAD_REQUEST,
+        message: "Action is required. Use 'cancel' or 'resume'",
+        data: null,
+      });
+      return;
+    }
+
+    const result = await subscription_services.update_subscription_status(
+      user.userId,
+      action,
+    );
+
+    manageResponse(res, {
+      success: true,
+      statusCode: httpStatus.OK,
+      message: result.message,
+      data: {
+        currentPeriodEnd: result.currentPeriodEnd,
+        nextBillingDate: result.nextBillingDate,
+      },
+    });
+  },
+);
 
 const cancel_subscription = catchAsync(async (req: Request, res: Response) => {
   const user = req.user!;
@@ -94,49 +108,69 @@ const resume_subscription = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const change_subscription_plan = catchAsync(async (req: Request, res: Response) => {
-  const user = req.user!;
-  const { planId, direction } = req.body;
+const change_subscription_plan = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user!;
+    const { planId, direction } = req.body;
 
-  if (!planId) {
+    if (!planId) {
+      manageResponse(res, {
+        success: false,
+        statusCode: httpStatus.BAD_REQUEST,
+        message: "planId is required",
+        data: null,
+      });
+      return;
+    }
+
+    const result = await subscription_services.change_subscription_plan(
+      user.userId,
+      planId,
+      direction,
+    );
+
     manageResponse(res, {
-      success: false,
-      statusCode: httpStatus.BAD_REQUEST,
-      message: 'planId is required',
-      data: null,
+      success: true,
+      statusCode: httpStatus.OK,
+      message: result.message,
+      data: {
+        newPlan: result.newPlan,
+        direction: result.direction,
+        prorated: result.prorated,
+        effectiveDate: result.effectiveDate,
+      },
     });
-    return;
-  }
+  },
+);
 
-  const result = await subscription_services.change_subscription_plan(user.userId, planId, direction);
+const create_billing_portal = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user!;
+    const { returnUrl } = req.body;
 
-  manageResponse(res, {
-    success: true,
-    statusCode: httpStatus.OK,
-    message: result.message,
-    data: { newPlan: result.newPlan, direction: result.direction, prorated: result.prorated, effectiveDate: result.effectiveDate },
-  });
-});
+    const result = await subscription_services.create_billing_portal(
+      user.userId,
+      returnUrl,
+    );
 
-const create_billing_portal = catchAsync(async (req: Request, res: Response) => {
-  const user = req.user!;
-  const { returnUrl } = req.body;
-
-  const result = await subscription_services.create_billing_portal(user.userId, returnUrl);
-
-  manageResponse(res, {
-    success: true,
-    statusCode: httpStatus.OK,
-    message: 'Billing portal session created',
-    data: result,
-  });
-});
+    manageResponse(res, {
+      success: true,
+      statusCode: httpStatus.OK,
+      message: "Billing portal session created",
+      data: result,
+    });
+  },
+);
 
 // Backward-compatible wrappers (deprecated — use change_subscription_plan instead)
 const upgrade_subscription = catchAsync(async (req: Request, res: Response) => {
   const user = req.user!;
   const { planId } = req.body;
-  const result = await subscription_services.change_subscription_plan(user.userId, planId, 'upgrade');
+  const result = await subscription_services.change_subscription_plan(
+    user.userId,
+    planId,
+    "upgrade",
+  );
 
   manageResponse(res, {
     success: true,
@@ -146,18 +180,24 @@ const upgrade_subscription = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const downgrade_subscription = catchAsync(async (req: Request, res: Response) => {
-  const user = req.user!;
-  const { planId } = req.body;
-  const result = await subscription_services.change_subscription_plan(user.userId, planId, 'downgrade');
+const downgrade_subscription = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user!;
+    const { planId } = req.body;
+    const result = await subscription_services.change_subscription_plan(
+      user.userId,
+      planId,
+      "downgrade",
+    );
 
-  manageResponse(res, {
-    success: true,
-    statusCode: httpStatus.OK,
-    message: result.message,
-    data: { newPlan: result.newPlan, effectiveDate: result.effectiveDate },
-  });
-});
+    manageResponse(res, {
+      success: true,
+      statusCode: httpStatus.OK,
+      message: result.message,
+      data: { newPlan: result.newPlan, effectiveDate: result.effectiveDate },
+    });
+  },
+);
 
 const get_payment_history = catchAsync(async (req: Request, res: Response) => {
   const user = req.user!;
@@ -166,30 +206,34 @@ const get_payment_history = catchAsync(async (req: Request, res: Response) => {
   const result = await subscription_services.get_payment_history(
     user.userId,
     Number(page),
-    Number(limit)
+    Number(limit),
   );
 
   manageResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: 'Payment history retrieved successfully',
+    message: "Payment history retrieved successfully",
     data: result.data,
     meta: result.meta,
   });
 });
 
-const get_subscription_usage = catchAsync(async (req: Request, res: Response) => {
-  const user = req.user!;
+const get_subscription_usage = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user!;
 
-  const result = await subscription_services.get_subscription_usage(user.userId);
+    const result = await subscription_services.get_subscription_usage(
+      user.userId,
+    );
 
-  manageResponse(res, {
-    success: true,
-    statusCode: httpStatus.OK,
-    message: 'Subscription usage retrieved successfully',
-    data: result,
-  });
-});
+    manageResponse(res, {
+      success: true,
+      statusCode: httpStatus.OK,
+      message: "Subscription usage retrieved successfully",
+      data: result,
+    });
+  },
+);
 
 export const subscription_controllers = {
   get_all_plans,

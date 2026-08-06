@@ -1,41 +1,50 @@
-import { AppError } from '../../utils/app_error';
-import httpStatus from 'http-status';
-import { Signal_Model, SignalStatus, SignalOutcome, ISignal, WorkflowStatus } from './signal.schema';
-import { Master_Model } from '../master/master.schema';
-import { Account_Model } from '../auth/auth.schema';
-import { Copied_Trade_Model } from '../copied_trade/copied_trade.schema';
-import { Types } from 'mongoose';
-import { contribution_services } from '../contribution/contribution.service';
-import { notification_services } from '../notification/notification.service';
-import { follow_services } from '../follow/follow.service';
-import { ai_services } from '../ai/ai.service';
-import { SignalValidationInput } from '../ai/ai.interface';
-import { audit_services } from '../audit/audit.service';
-import { AuditAction } from '../audit/audit.schema';
-import { configs } from '../../configs';
-import logger from '../../configs/logger';
+import { AppError } from "../../utils/app_error";
+import httpStatus from "http-status";
+import {
+  Signal_Model,
+  SignalStatus,
+  SignalOutcome,
+  ISignal,
+  WorkflowStatus,
+} from "./signal.schema";
+import { Master_Model } from "../master/master.schema";
+import { Account_Model } from "../auth/auth.schema";
+import { Copied_Trade_Model } from "../copied_trade/copied_trade.schema";
+import { Types } from "mongoose";
+import { contribution_services } from "../contribution/contribution.service";
+import { notification_services } from "../notification/notification.service";
+import { follow_services } from "../follow/follow.service";
+import { ai_services } from "../ai/ai.service";
+import { SignalValidationInput } from "../ai/ai.interface";
+import { audit_services } from "../audit/audit.service";
+import { AuditAction } from "../audit/audit.schema";
+import { configs } from "../../configs";
+import logger from "../../configs/logger";
 import {
   CONFIRMABLE_WORKFLOW_STATUSES,
   REJECTABLE_WORKFLOW_STATUSES,
   RESUBMIT_AI_WORKFLOW_STATUSES,
-} from './signal.workflow.constants';
-import { incrementSignalUsageForAccount } from '../../middlewares/subscription_guard';
-import { SignalEngagement_Model } from './signal_engagement.schema';
-import { createSignalSchema, refineSignalPriceLevels } from './signal.validation';
+} from "./signal.workflow.constants";
+import { incrementSignalUsageForAccount } from "../../middlewares/subscription_guard";
+import { SignalEngagement_Model } from "./signal_engagement.schema";
+import {
+  createSignalSchema,
+  refineSignalPriceLevels,
+} from "./signal.validation";
 import {
   formatSignalOutcomeLabel,
   hitTargetMatch,
   resolveSignalOutcome,
   stoppedOutMatch,
-} from './signal.outcome';
-import { z } from 'zod';
+} from "./signal.outcome";
+import { z } from "zod";
 
 /**
  * Enforce long/short price geometry using merged current + incoming values.
  * Used on update so partial patches cannot introduce invalid levels.
  */
 const assertValidPriceLevels = (levels: {
-  signalType: 'long' | 'short';
+  signalType: "long" | "short";
   entryPrice: number;
   stopLoss?: number | null;
   takeProfit1?: number | null;
@@ -44,7 +53,8 @@ const assertValidPriceLevels = (levels: {
 }) => {
   const issues: z.ZodIssue[] = [];
   refineSignalPriceLevels(levels, {
-    addIssue: (issue: z.ZodIssueOptionalMessage) => issues.push(issue as z.ZodIssue),
+    addIssue: (issue: z.ZodIssueOptionalMessage) =>
+      issues.push(issue as z.ZodIssue),
     path: [],
   } as unknown as z.RefinementCtx);
 
@@ -56,9 +66,17 @@ const assertValidPriceLevels = (levels: {
 interface TCreateSignal {
   title: string;
   description?: string;
-  assetType: 'forex' | 'crypto' | 'stocks' | 'indices' | 'commodities' | 'futures' | 'options' | 'etfs';
+  assetType:
+    | "forex"
+    | "crypto"
+    | "stocks"
+    | "indices"
+    | "commodities"
+    | "futures"
+    | "options"
+    | "etfs";
   symbol: string;
-  signalType: 'long' | 'short';
+  signalType: "long" | "short";
   timeframe: string;
   entryPrice: number;
   entryNotes?: string;
@@ -70,7 +88,7 @@ interface TCreateSignal {
   tags?: string[];
   externalChartUrl?: string;
   videoUrl?: string;
-  publishType?: 'instant' | 'scheduled';
+  publishType?: "instant" | "scheduled";
   scheduledAt?: string;
 }
 
@@ -84,20 +102,24 @@ const resolveCloseOutcome = (opts: {
   resultPnl?: number | null;
 }): SignalOutcome => {
   const explicit = opts.explicitOutcome;
-  if (explicit === 'hit_target' || explicit === 'stopped_out' || explicit === 'cancelled') {
+  if (
+    explicit === "hit_target" ||
+    explicit === "stopped_out" ||
+    explicit === "cancelled"
+  ) {
     return explicit;
   }
 
   const alias = opts.statusAlias;
-  if (alias === 'hit_target' || alias === 'won') return 'hit_target';
-  if (alias === 'stopped_out' || alias === 'lost') return 'stopped_out';
-  if (alias === 'cancelled' || alias === 'canceled') return 'cancelled';
+  if (alias === "hit_target" || alias === "won") return "hit_target";
+  if (alias === "stopped_out" || alias === "lost") return "stopped_out";
+  if (alias === "cancelled" || alias === "canceled") return "cancelled";
 
   if (opts.resultPnl != null) {
-    return opts.resultPnl >= 0 ? 'hit_target' : 'stopped_out';
+    return opts.resultPnl >= 0 ? "hit_target" : "stopped_out";
   }
 
-  return 'hit_target';
+  return "hit_target";
 };
 
 /**
@@ -107,15 +129,17 @@ const resolveCloseOutcome = (opts: {
  */
 const syncCopiedTradesMasterOutcome = async (
   signalId: string,
-  masterOutcome: SignalOutcome
+  masterOutcome: SignalOutcome,
 ) => {
   try {
     await Copied_Trade_Model.updateMany(
       { signalId: new Types.ObjectId(signalId) },
-      { $set: { masterOutcome } }
+      { $set: { masterOutcome } },
     );
   } catch (err: any) {
-    logger.warn(`Failed to sync masterOutcome for signal ${signalId}: ${err?.message}`);
+    logger.warn(
+      `Failed to sync masterOutcome for signal ${signalId}: ${err?.message}`,
+    );
   }
 };
 
@@ -125,24 +149,24 @@ const syncCopiedTradesMasterOutcome = async (
  */
 const notifyCopiersOfSignalClosed = async (
   signalId: string,
-  outcome: SignalOutcome
+  outcome: SignalOutcome,
 ) => {
   try {
     const copies = await Copied_Trade_Model.find({
       signalId: new Types.ObjectId(signalId),
-    }).select('userId');
+    }).select("userId");
 
     if (!copies.length) {
       return { notifiedCount: 0 };
     }
 
-    const signal = await Signal_Model.findById(signalId).select('title symbol');
-    const signalLabel = signal?.title || signal?.symbol || 'a signal';
+    const signal = await Signal_Model.findById(signalId).select("title symbol");
+    const signalLabel = signal?.title || signal?.symbol || "a signal";
     const outcomeLabel = formatSignalOutcomeLabel(outcome);
 
     const notifications = copies.map((copy) => ({
       accountId: copy.userId.toString(),
-      type: 'signal_closed' as const,
+      type: "signal_closed" as const,
       title: `Signal closed — ${outcomeLabel}`,
       message: `Master closed "${signalLabel}" as ${outcomeLabel}. You can still log your own trade result.`,
       link: `/signals/${signalId}`,
@@ -153,26 +177,33 @@ const notifyCopiersOfSignalClosed = async (
       },
     }));
 
-    const result = await notification_services.create_many_notifications(notifications);
+    const result =
+      await notification_services.create_many_notifications(notifications);
     logger.info(
-      `📢 Notified ${result.createdCount}/${notifications.length} copiers about closed signal ${signalId} (${outcome})`
+      `📢 Notified ${result.createdCount}/${notifications.length} copiers about closed signal ${signalId} (${outcome})`,
     );
     return result;
   } catch (error: any) {
-    logger.error(`❌ Failed to notify copiers for closed signal ${signalId}: ${error.message}`);
+    logger.error(
+      `❌ Failed to notify copiers for closed signal ${signalId}: ${error.message}`,
+    );
     return { notifiedCount: 0 };
   }
 };
 
-const enrichSignal = (signal: ISignal & { _id?: Types.ObjectId; toObject?: () => ISignal }) => {
+const enrichSignal = (
+  signal: ISignal & { _id?: Types.ObjectId; toObject?: () => ISignal },
+) => {
   const obj =
-    typeof signal.toObject === 'function'
+    typeof signal.toObject === "function"
       ? (signal.toObject() as ISignal)
       : ({ ...signal } as ISignal);
 
-  const takeProfits = [obj.takeProfit1, obj.takeProfit2, obj.takeProfit3].filter(
-    (tp): tp is number => tp !== null && tp !== undefined
-  );
+  const takeProfits = [
+    obj.takeProfit1,
+    obj.takeProfit2,
+    obj.takeProfit3,
+  ].filter((tp): tp is number => tp !== null && tp !== undefined);
 
   return {
     ...obj,
@@ -182,8 +213,9 @@ const enrichSignal = (signal: ISignal & { _id?: Types.ObjectId; toObject?: () =>
   };
 };
 
-const enrichSignals = (signals: Array<ISignal & { toObject?: () => ISignal }>) =>
-  signals.map((signal) => enrichSignal(signal));
+const enrichSignals = (
+  signals: Array<ISignal & { toObject?: () => ISignal }>,
+) => signals.map((signal) => enrichSignal(signal));
 
 interface TCloseSignal {
   resultPnl?: number | null;
@@ -204,14 +236,16 @@ interface TSignalFilters {
 }
 
 const assertMasterApproved = async (accountId: string) => {
-  const master = await Master_Model.findOne({ accountId: new Types.ObjectId(accountId) });
+  const master = await Master_Model.findOne({
+    accountId: new Types.ObjectId(accountId),
+  });
   if (!master) {
-    throw new AppError('Master profile not found', httpStatus.NOT_FOUND);
+    throw new AppError("Master profile not found", httpStatus.NOT_FOUND);
   }
   if (!master.isApproved) {
     throw new AppError(
-      'Your Master Trader account is not approved yet. Contact admin.',
-      httpStatus.FORBIDDEN
+      "Your Master Trader account is not approved yet. Contact admin.",
+      httpStatus.FORBIDDEN,
     );
   }
   return master;
@@ -222,7 +256,7 @@ const safeAudit = async (
   actorId: string,
   targetType: string,
   targetId: string,
-  metadata: Record<string, unknown> = {}
+  metadata: Record<string, unknown> = {},
 ) => {
   try {
     await audit_services.log(action, actorId, targetType, targetId, metadata);
@@ -249,19 +283,21 @@ const signalToValidationInput = (signal: ISignal): SignalValidationInput => ({
 const runAiValidationForSignal = async (signalId: string, actorId: string) => {
   const signal = await Signal_Model.findById(signalId);
   if (!signal) {
-    throw new AppError('Signal not found', httpStatus.NOT_FOUND);
+    throw new AppError("Signal not found", httpStatus.NOT_FOUND);
   }
 
-  const validation = await ai_services.validate_signal(signalToValidationInput(signal));
+  const validation = await ai_services.validate_signal(
+    signalToValidationInput(signal),
+  );
 
   const workflowStatus: WorkflowStatus =
-    validation.status === 'fail' ? 'ai_failed' : 'mt_pending';
+    validation.status === "fail" ? "ai_failed" : "mt_pending";
 
   const updated = await Signal_Model.findByIdAndUpdate(
     signalId,
     {
       workflowStatus,
-      status: 'draft',
+      status: "draft",
       aiValidation: {
         status: validation.status,
         score: validation.score,
@@ -273,10 +309,10 @@ const runAiValidationForSignal = async (signalId: string, actorId: string) => {
         rawResponse: validation.rawResponse,
       },
     },
-    { new: true }
+    { new: true },
   );
 
-  await safeAudit('signal_ai_validated', actorId, 'signal', signalId, {
+  await safeAudit("signal_ai_validated", actorId, "signal", signalId, {
     status: validation.status,
     score: validation.score,
   });
@@ -284,17 +320,20 @@ const runAiValidationForSignal = async (signalId: string, actorId: string) => {
   try {
     await notification_services.create_notification({
       accountId: actorId,
-      type: validation.status === 'fail' ? 'signal_ai_reviewed' : 'signal_mt_pending',
+      type:
+        validation.status === "fail"
+          ? "signal_ai_reviewed"
+          : "signal_mt_pending",
       title:
-        validation.status === 'fail'
-          ? 'Signal needs revision'
-          : 'Signal ready for your review',
+        validation.status === "fail"
+          ? "Signal needs revision"
+          : "Signal ready for your review",
       message: validation.summary,
       link: `/signals/${signalId}/review`,
       data: { signalId, aiStatus: validation.status },
     });
   } catch (err) {
-    logger.warn('AI validation notification failed', { signalId, err });
+    logger.warn("AI validation notification failed", { signalId, err });
   }
 
   return updated;
@@ -302,16 +341,20 @@ const runAiValidationForSignal = async (signalId: string, actorId: string) => {
 
 const publishApprovedSignal = async (
   signal: ISignal & { _id: Types.ObjectId },
-  accountId: string
+  accountId: string,
 ) => {
   const signalId = signal._id.toString();
-  const publishType = signal.publishType || 'instant';
+  const publishType = signal.publishType || "instant";
   const now = new Date();
-  let status: SignalStatus = 'active';
+  let status: SignalStatus = "active";
   let publishedAt: Date | null = now;
 
-  if (publishType === 'scheduled' && signal.scheduledAt && signal.scheduledAt > now) {
-    status = 'scheduled';
+  if (
+    publishType === "scheduled" &&
+    signal.scheduledAt &&
+    signal.scheduledAt > now
+  ) {
+    status = "scheduled";
     publishedAt = null;
   }
 
@@ -319,21 +362,28 @@ const publishApprovedSignal = async (
     signalId,
     {
       status,
-      workflowStatus: 'active',
+      workflowStatus: "active",
       publishedAt,
       mtReview: {
         confirmedAt: now,
         confirmedBy: new Types.ObjectId(accountId),
         rejectedAt: null,
-        rejectionReason: '',
+        rejectionReason: "",
       },
     },
-    { new: true }
+    { new: true },
   );
 
-  if (status === 'active') {
-    await Master_Model.findOneAndUpdate({ accountId }, { $inc: { totalSignals: 1 } });
-    contribution_services.track_contribution(accountId, 'create_signal', signalId);
+  if (status === "active") {
+    await Master_Model.findOneAndUpdate(
+      { accountId },
+      { $inc: { totalSignals: 1 } },
+    );
+    contribution_services.track_contribution(
+      accountId,
+      "create_signal",
+      signalId,
+    );
     await notifyFollowersOfNewSignal(signalId, accountId);
   }
 
@@ -348,30 +398,39 @@ const publishApprovedSignal = async (
 const create_signal = async (accountId: string, data: TCreateSignal) => {
   const account = await Account_Model.findById(accountId);
   if (!account) {
-    throw new AppError('Account not found', httpStatus.NOT_FOUND);
+    throw new AppError("Account not found", httpStatus.NOT_FOUND);
   }
 
-  const isAdmin = account.role === 'ADMIN';
-  const isMaster = account.role === 'MASTER';
+  const isAdmin = account.role === "ADMIN";
+  const isMaster = account.role === "MASTER";
 
   if (!isAdmin && !isMaster) {
-    throw new AppError('Only Master Traders or Admins can create signals', httpStatus.FORBIDDEN);
+    throw new AppError(
+      "Only Master Traders or Admins can create signals",
+      httpStatus.FORBIDDEN,
+    );
   }
 
   if (isMaster) {
     await assertMasterApproved(accountId);
   }
 
-  const publishType = data.publishType || 'instant';
+  const publishType = data.publishType || "instant";
   let scheduledAt: Date | null = null;
 
-  if (publishType === 'scheduled') {
+  if (publishType === "scheduled") {
     if (!data.scheduledAt) {
-      throw new AppError('scheduledAt is required when publishType is scheduled', httpStatus.BAD_REQUEST);
+      throw new AppError(
+        "scheduledAt is required when publishType is scheduled",
+        httpStatus.BAD_REQUEST,
+      );
     }
     scheduledAt = new Date(data.scheduledAt);
     if (isNaN(scheduledAt.getTime())) {
-      throw new AppError('Invalid scheduledAt date format', httpStatus.BAD_REQUEST);
+      throw new AppError(
+        "Invalid scheduledAt date format",
+        httpStatus.BAD_REQUEST,
+      );
     }
   }
 
@@ -379,12 +438,12 @@ const create_signal = async (accountId: string, data: TCreateSignal) => {
     const signal = await Signal_Model.create({
       ...data,
       authorId: new Types.ObjectId(accountId),
-      status: 'draft',
-      workflowStatus: 'ai_pending',
+      status: "draft",
+      workflowStatus: "ai_pending",
       publishType,
       scheduledAt,
       publishedAt: null,
-      outcome: 'pending',
+      outcome: "pending",
       stopLoss: data.stopLoss ?? null,
       takeProfit1: data.takeProfit1 ?? null,
       takeProfit2: data.takeProfit2 ?? null,
@@ -398,16 +457,18 @@ const create_signal = async (accountId: string, data: TCreateSignal) => {
       const validated = await runAiValidationForSignal(signalId, accountId);
       return enrichSignal(validated!);
     } catch (err) {
-      await Signal_Model.findByIdAndUpdate(signalId, { workflowStatus: 'draft' });
+      await Signal_Model.findByIdAndUpdate(signalId, {
+        workflowStatus: "draft",
+      });
       throw err;
     }
   }
 
-  let status: SignalStatus = 'active';
+  let status: SignalStatus = "active";
   let publishedAt: Date | null = null;
 
-  if (publishType === 'scheduled') {
-    status = 'scheduled';
+  if (publishType === "scheduled") {
+    status = "scheduled";
   } else {
     publishedAt = new Date();
   }
@@ -416,22 +477,29 @@ const create_signal = async (accountId: string, data: TCreateSignal) => {
     ...data,
     authorId: new Types.ObjectId(accountId),
     status,
-    workflowStatus: 'active',
+    workflowStatus: "active",
     publishType,
     scheduledAt,
     publishedAt,
-    outcome: 'pending',
+    outcome: "pending",
     stopLoss: data.stopLoss ?? null,
     takeProfit1: data.takeProfit1 ?? null,
     takeProfit2: data.takeProfit2 ?? null,
     takeProfit3: data.takeProfit3 ?? null,
   });
 
-  if (publishType === 'instant') {
+  if (publishType === "instant") {
     if (isMaster) {
-      await Master_Model.findOneAndUpdate({ accountId }, { $inc: { totalSignals: 1 } });
+      await Master_Model.findOneAndUpdate(
+        { accountId },
+        { $inc: { totalSignals: 1 } },
+      );
     }
-    contribution_services.track_contribution(accountId, 'create_signal', signal._id.toString());
+    contribution_services.track_contribution(
+      accountId,
+      "create_signal",
+      signal._id.toString(),
+    );
     await notifyFollowersOfNewSignal(signal._id.toString(), accountId);
   }
 
@@ -443,47 +511,50 @@ const create_signal = async (accountId: string, data: TCreateSignal) => {
  */
 const create_signal_from_json = async (
   accountId: string,
-  payload: { signal: TCreateSignal; skipAiWorkflow?: boolean }
+  payload: { signal: TCreateSignal; skipAiWorkflow?: boolean },
 ) => {
   const { signal: signalData, skipAiWorkflow = false } = payload;
 
   const account = await Account_Model.findById(accountId);
-  const isAdmin = account?.role === 'ADMIN';
+  const isAdmin = account?.role === "ADMIN";
 
   if (skipAiWorkflow || !configs.features.signalAiWorkflow || isAdmin) {
     return create_signal(accountId, signalData);
   }
 
   if (!account) {
-    throw new AppError('Account not found', httpStatus.NOT_FOUND);
+    throw new AppError("Account not found", httpStatus.NOT_FOUND);
   }
 
-  const isMaster = account.role === 'MASTER';
+  const isMaster = account.role === "MASTER";
 
   if (!isAdmin && !isMaster) {
-    throw new AppError('Only Master Traders or Admins can create signals', httpStatus.FORBIDDEN);
+    throw new AppError(
+      "Only Master Traders or Admins can create signals",
+      httpStatus.FORBIDDEN,
+    );
   }
 
   if (isMaster) {
     await assertMasterApproved(accountId);
   }
 
-  const publishType = signalData.publishType || 'instant';
+  const publishType = signalData.publishType || "instant";
   let scheduledAt: Date | null = null;
 
-  if (publishType === 'scheduled' && signalData.scheduledAt) {
+  if (publishType === "scheduled" && signalData.scheduledAt) {
     scheduledAt = new Date(signalData.scheduledAt);
   }
 
   const signal = await Signal_Model.create({
     ...signalData,
     authorId: new Types.ObjectId(accountId),
-    status: 'draft',
-    workflowStatus: 'ai_pending',
+    status: "draft",
+    workflowStatus: "ai_pending",
     publishType,
     scheduledAt,
     publishedAt: null,
-    outcome: 'pending',
+    outcome: "pending",
     stopLoss: signalData.stopLoss ?? null,
     takeProfit1: signalData.takeProfit1 ?? null,
     takeProfit2: signalData.takeProfit2 ?? null,
@@ -497,7 +568,7 @@ const create_signal_from_json = async (
     const validated = await runAiValidationForSignal(signalId, accountId);
     return enrichSignal(validated!);
   } catch (err) {
-    await Signal_Model.findByIdAndUpdate(signalId, { workflowStatus: 'draft' });
+    await Signal_Model.findByIdAndUpdate(signalId, { workflowStatus: "draft" });
     throw err;
   }
 };
@@ -511,21 +582,21 @@ const MAX_LOOSE_JSON_CHARS = 15000;
  */
 const create_signal_from_loose_json = async (
   accountId: string,
-  payload: { content: unknown; skipAiWorkflow?: boolean }
+  payload: { content: unknown; skipAiWorkflow?: boolean },
 ) => {
   const { content, skipAiWorkflow = false } = payload;
 
   const rawContent =
-    typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+    typeof content === "string" ? content : JSON.stringify(content, null, 2);
 
   if (!rawContent.trim()) {
-    throw new AppError('The uploaded file is empty', httpStatus.BAD_REQUEST);
+    throw new AppError("The uploaded file is empty", httpStatus.BAD_REQUEST);
   }
 
   if (rawContent.length > MAX_LOOSE_JSON_CHARS) {
     throw new AppError(
       `File is too large for AI extraction (max ${MAX_LOOSE_JSON_CHARS} characters)`,
-      httpStatus.BAD_REQUEST
+      httpStatus.BAD_REQUEST,
     );
   }
 
@@ -533,18 +604,18 @@ const create_signal_from_loose_json = async (
 
   if (!extraction) {
     throw new AppError(
-      'AI extraction is unavailable. Please format your file to match the standard signal JSON template and use the regular import.',
-      httpStatus.SERVICE_UNAVAILABLE
+      "AI extraction is unavailable. Please format your file to match the standard signal JSON template and use the regular import.",
+      httpStatus.SERVICE_UNAVAILABLE,
     );
   }
 
   if (!extraction.signal) {
     const reason = extraction.notes.length
-      ? extraction.notes.join(' ')
-      : 'Required trade details (symbol, entry price, direction) could not be identified.';
+      ? extraction.notes.join(" ")
+      : "Required trade details (symbol, entry price, direction) could not be identified.";
     throw new AppError(
       `AI could not extract a valid signal from the file: ${reason}`,
-      httpStatus.UNPROCESSABLE_ENTITY
+      httpStatus.UNPROCESSABLE_ENTITY,
     );
   }
 
@@ -552,16 +623,16 @@ const create_signal_from_loose_json = async (
 
   if (!parsed.success) {
     const issues = parsed.error.issues
-      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-      .join('; ');
+      .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+      .join("; ");
     throw new AppError(
       `AI-extracted signal failed validation: ${issues}`,
-      httpStatus.UNPROCESSABLE_ENTITY
+      httpStatus.UNPROCESSABLE_ENTITY,
     );
   }
 
   logger.info(
-    `AI extracted signal from loose JSON for account ${accountId} (confidence: ${extraction.confidence})`
+    `AI extracted signal from loose JSON for account ${accountId} (confidence: ${extraction.confidence})`,
   );
 
   const created = await create_signal_from_json(accountId, {
@@ -583,9 +654,16 @@ const create_signal_from_loose_json = async (
  * Notify all followers of a Master Trader about a new signal.
  * Used for both instant and scheduled signal publishing.
  */
-const notifyFollowersOfNewSignal = async (signalId: string, masterAccountId: string) => {
+const notifyFollowersOfNewSignal = async (
+  signalId: string,
+  masterAccountId: string,
+) => {
   try {
-    const followers = await follow_services.get_followers(masterAccountId, 1, 10000);
+    const followers = await follow_services.get_followers(
+      masterAccountId,
+      1,
+      10000,
+    );
 
     if (!followers.data || followers.data.length === 0) {
       return { notifiedCount: 0 };
@@ -595,12 +673,12 @@ const notifyFollowersOfNewSignal = async (signalId: string, masterAccountId: str
     const signal = await Signal_Model.findById(signalId);
     if (!signal) return { notifiedCount: 0 };
 
-    const master = await Account_Model.findById(masterAccountId).select('name');
-    const masterName = master?.name || 'Master Trader';
+    const master = await Account_Model.findById(masterAccountId).select("name");
+    const masterName = master?.name || "Master Trader";
 
     const notifications = followers.data.map((follow: any) => ({
       accountId: follow.followerId._id.toString(),
-      type: 'new_signal' as const,
+      type: "new_signal" as const,
       title: `New signal from ${masterName}`,
       message: signal.title,
       link: `/signals/${signalId}`,
@@ -611,13 +689,16 @@ const notifyFollowersOfNewSignal = async (signalId: string, masterAccountId: str
       },
     }));
 
-    const result = await notification_services.create_many_notifications(notifications);
+    const result =
+      await notification_services.create_many_notifications(notifications);
     logger.info(
-      `📢 Notified ${result.createdCount}/${notifications.length} followers about new signal ${signalId}`
+      `📢 Notified ${result.createdCount}/${notifications.length} followers about new signal ${signalId}`,
     );
     return result;
   } catch (error: any) {
-    logger.error(`❌ Failed to notify followers for signal ${signalId}: ${error.message}`);
+    logger.error(
+      `❌ Failed to notify followers for signal ${signalId}: ${error.message}`,
+    );
     return { notifiedCount: 0 };
   }
 };
@@ -631,22 +712,33 @@ const update_signal = async (
   accountId: string,
   signalId: string,
   data: Partial<TCreateSignal> &
-    TCloseSignal & { status?: SignalStatus | 'won' | 'lost' | 'hit_target' | 'stopped_out' | 'pending' }
+    TCloseSignal & {
+      status?:
+        | SignalStatus
+        | "won"
+        | "lost"
+        | "hit_target"
+        | "stopped_out"
+        | "pending";
+    },
 ) => {
   if (!Types.ObjectId.isValid(signalId)) {
-    throw new AppError('Invalid signal ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid signal ID", httpStatus.BAD_REQUEST);
   }
 
   const signal = await Signal_Model.findById(signalId);
   if (!signal) {
-    throw new AppError('Signal not found', httpStatus.NOT_FOUND);
+    throw new AppError("Signal not found", httpStatus.NOT_FOUND);
   }
 
   const account = await Account_Model.findById(accountId);
-  const isAdmin = account?.role === 'ADMIN';
+  const isAdmin = account?.role === "ADMIN";
 
   if (!isAdmin && signal.authorId.toString() !== accountId) {
-    throw new AppError('You can only update your own signals', httpStatus.FORBIDDEN);
+    throw new AppError(
+      "You can only update your own signals",
+      httpStatus.FORBIDDEN,
+    );
   }
 
   // Stats/contributions belong to the signal author, even when an admin edits
@@ -657,19 +749,27 @@ const update_signal = async (
   let finalStatus = data.status as SignalStatus | undefined;
   let finalResultPnl = data.resultPnl;
 
-  if (finalStatus === ('won' as any) || finalStatus === ('hit_target' as any)) {
-    finalStatus = 'completed';
-    if (finalResultPnl === undefined || finalResultPnl === null) finalResultPnl = 1;
-  } else if (finalStatus === ('lost' as any) || finalStatus === ('stopped_out' as any)) {
-    finalStatus = 'completed';
-    if (finalResultPnl === undefined || finalResultPnl === null) finalResultPnl = -1;
-  } else if (finalStatus === ('published' as any) || finalStatus === ('pending' as any)) {
-    finalStatus = 'active';
-  } else if (finalStatus === ('closed' as any)) {
+  if (finalStatus === ("won" as any) || finalStatus === ("hit_target" as any)) {
+    finalStatus = "completed";
+    if (finalResultPnl === undefined || finalResultPnl === null)
+      finalResultPnl = 1;
+  } else if (
+    finalStatus === ("lost" as any) ||
+    finalStatus === ("stopped_out" as any)
+  ) {
+    finalStatus = "completed";
+    if (finalResultPnl === undefined || finalResultPnl === null)
+      finalResultPnl = -1;
+  } else if (
+    finalStatus === ("published" as any) ||
+    finalStatus === ("pending" as any)
+  ) {
+    finalStatus = "active";
+  } else if (finalStatus === ("closed" as any)) {
     // Backward-compat: accept legacy 'closed' input and normalize to 'completed'
-    finalStatus = 'completed';
-  } else if (finalStatus === ('cancelled' as any)) {
-    finalStatus = 'canceled';
+    finalStatus = "completed";
+  } else if (finalStatus === ("cancelled" as any)) {
+    finalStatus = "canceled";
   }
 
   // Detect close action:
@@ -678,18 +778,18 @@ const update_signal = async (
   const explicitOutcome = data.outcome;
   const hasResultPnl = finalResultPnl !== undefined && finalResultPnl !== null;
   const hasCloseableOutcome =
-    explicitOutcome === 'hit_target' ||
-    explicitOutcome === 'stopped_out' ||
-    requestedStatus === 'hit_target' ||
-    requestedStatus === 'stopped_out' ||
-    requestedStatus === 'won' ||
-    requestedStatus === 'lost';
+    explicitOutcome === "hit_target" ||
+    explicitOutcome === "stopped_out" ||
+    requestedStatus === "hit_target" ||
+    requestedStatus === "stopped_out" ||
+    requestedStatus === "won" ||
+    requestedStatus === "lost";
   const isClosing =
-    finalStatus === 'completed' && (hasResultPnl || hasCloseableOutcome);
+    finalStatus === "completed" && (hasResultPnl || hasCloseableOutcome);
 
   if (isClosing) {
-    if (signal.status === 'completed') {
-      throw new AppError('Signal is already closed', httpStatus.BAD_REQUEST);
+    if (signal.status === "completed") {
+      throw new AppError("Signal is already closed", httpStatus.BAD_REQUEST);
     }
 
     const master = await Master_Model.findOne({ accountId: authorAccountId });
@@ -701,60 +801,74 @@ const update_signal = async (
 
     // Default PnL sign from outcome when client closes via outcome/status alias only
     if (!hasResultPnl) {
-      finalResultPnl = outcome === 'stopped_out' ? -1 : 1;
+      finalResultPnl = outcome === "stopped_out" ? -1 : 1;
     }
 
     const updates: Record<string, unknown> = {
-      status: 'completed',
+      status: "completed",
       outcome,
       closedAt: new Date(),
       resultPnl: finalResultPnl,
-      pnlUnit: (data as any).pnlUnit || 'usd',
-      closeNotes: data.closeNotes || '',
+      pnlUnit: (data as any).pnlUnit || "usd",
+      closeNotes: data.closeNotes || "",
     };
 
-    const updated = await Signal_Model.findByIdAndUpdate(signalId, updates, { new: true });
+    const updated = await Signal_Model.findByIdAndUpdate(signalId, updates, {
+      new: true,
+    });
     await syncCopiedTradesMasterOutcome(signalId, outcome);
     await notifyCopiersOfSignalClosed(signalId, outcome);
 
     // Update master win/loss stats from resolved outcome only (not PnL OR)
-    if (master && (outcome === 'hit_target' || outcome === 'stopped_out')) {
-      const incField = outcome === 'hit_target' ? 'winningSignals' : 'losingSignals';
+    if (master && (outcome === "hit_target" || outcome === "stopped_out")) {
+      const incField =
+        outcome === "hit_target" ? "winningSignals" : "losingSignals";
       await Master_Model.findOneAndUpdate(
         { accountId: authorAccountId },
-        { $inc: { [incField]: 1 } }
+        { $inc: { [incField]: 1 } },
       );
 
       // Recalculate win rate
-      const updatedMaster = await Master_Model.findOne({ accountId: authorAccountId });
+      const updatedMaster = await Master_Model.findOne({
+        accountId: authorAccountId,
+      });
       if (updatedMaster) {
-        const total = updatedMaster.winningSignals + updatedMaster.losingSignals;
-        const winRate = total > 0 ? (updatedMaster.winningSignals / total) * 100 : 0;
+        const total =
+          updatedMaster.winningSignals + updatedMaster.losingSignals;
+        const winRate =
+          total > 0 ? (updatedMaster.winningSignals / total) * 100 : 0;
         await Master_Model.findOneAndUpdate(
           { accountId: authorAccountId },
-          { winRate: Math.round(winRate * 100) / 100 }
+          { winRate: Math.round(winRate * 100) / 100 },
         );
       }
 
       // Track contribution for closing signal
       const activityType =
-        outcome === 'hit_target' ? 'close_signal_profit' : 'close_signal_loss';
-      contribution_services.track_contribution(authorAccountId, activityType, signalId);
+        outcome === "hit_target" ? "close_signal_profit" : "close_signal_loss";
+      contribution_services.track_contribution(
+        authorAccountId,
+        activityType,
+        signalId,
+      );
     }
 
     return enrichSignal(updated!);
   }
 
-  const editableStatuses = ['active', 'scheduled', 'draft'];
-  const editableWorkflow = ['ai_failed', 'draft', 'mt_pending', 'ai_passed'];
+  const editableStatuses = ["active", "scheduled", "draft"];
+  const editableWorkflow = ["ai_failed", "draft", "mt_pending", "ai_passed"];
   const canEditWorkflow =
     !signal.workflowStatus ||
-    signal.workflowStatus === 'active' ||
+    signal.workflowStatus === "active" ||
     editableWorkflow.includes(signal.workflowStatus);
 
-  if (!editableStatuses.includes(signal.status) && signal.status !== 'draft') {
+  if (!editableStatuses.includes(signal.status) && signal.status !== "draft") {
     if (!canEditWorkflow) {
-      throw new AppError('Cannot update completed, expired or canceled signals', httpStatus.BAD_REQUEST);
+      throw new AppError(
+        "Cannot update completed, expired or canceled signals",
+        httpStatus.BAD_REQUEST,
+      );
     }
   }
 
@@ -764,39 +878,45 @@ const update_signal = async (
   delete updatePayload.closeNotes;
   delete updatePayload.outcome;
 
-  if ('takeProfit1' in data) updatePayload.takeProfit1 = data.takeProfit1 ?? null;
-  if ('takeProfit2' in data) updatePayload.takeProfit2 = data.takeProfit2 ?? null;
-  if ('takeProfit3' in data) updatePayload.takeProfit3 = data.takeProfit3 ?? null;
+  if ("takeProfit1" in data)
+    updatePayload.takeProfit1 = data.takeProfit1 ?? null;
+  if ("takeProfit2" in data)
+    updatePayload.takeProfit2 = data.takeProfit2 ?? null;
+  if ("takeProfit3" in data)
+    updatePayload.takeProfit3 = data.takeProfit3 ?? null;
 
   const priceFieldsTouched =
     data.signalType !== undefined ||
     data.entryPrice !== undefined ||
-    'stopLoss' in data ||
-    'takeProfit1' in data ||
-    'takeProfit2' in data ||
-    'takeProfit3' in data;
+    "stopLoss" in data ||
+    "takeProfit1" in data ||
+    "takeProfit2" in data ||
+    "takeProfit3" in data;
 
   if (priceFieldsTouched) {
     assertValidPriceLevels({
-      signalType: (data.signalType ?? signal.signalType) as 'long' | 'short',
+      signalType: (data.signalType ?? signal.signalType) as "long" | "short",
       entryPrice: data.entryPrice ?? signal.entryPrice,
-      stopLoss: 'stopLoss' in data ? data.stopLoss ?? null : signal.stopLoss,
-      takeProfit1: 'takeProfit1' in data ? data.takeProfit1 ?? null : signal.takeProfit1,
-      takeProfit2: 'takeProfit2' in data ? data.takeProfit2 ?? null : signal.takeProfit2,
-      takeProfit3: 'takeProfit3' in data ? data.takeProfit3 ?? null : signal.takeProfit3,
+      stopLoss: "stopLoss" in data ? (data.stopLoss ?? null) : signal.stopLoss,
+      takeProfit1:
+        "takeProfit1" in data ? (data.takeProfit1 ?? null) : signal.takeProfit1,
+      takeProfit2:
+        "takeProfit2" in data ? (data.takeProfit2 ?? null) : signal.takeProfit2,
+      takeProfit3:
+        "takeProfit3" in data ? (data.takeProfit3 ?? null) : signal.takeProfit3,
     });
   }
 
   const nextOutcome: SignalOutcome | undefined =
-    finalStatus === 'canceled'
-      ? 'cancelled'
-      : explicitOutcome === 'cancelled'
-        ? 'cancelled'
+    finalStatus === "canceled"
+      ? "cancelled"
+      : explicitOutcome === "cancelled"
+        ? "cancelled"
         : undefined;
 
-  if (nextOutcome === 'cancelled') {
-    await syncCopiedTradesMasterOutcome(signalId, 'cancelled');
-    await notifyCopiersOfSignalClosed(signalId, 'cancelled');
+  if (nextOutcome === "cancelled") {
+    await syncCopiedTradesMasterOutcome(signalId, "cancelled");
+    await notifyCopiersOfSignalClosed(signalId, "cancelled");
   }
 
   const updated = await Signal_Model.findByIdAndUpdate(
@@ -809,7 +929,7 @@ const update_signal = async (
         ...(nextOutcome ? { outcome: nextOutcome } : {}),
       },
     },
-    { new: true }
+    { new: true },
   );
 
   return enrichSignal(updated!);
@@ -821,7 +941,9 @@ const get_review_queue = async (accountId: string, page = 1, limit = 20) => {
   const skip = (page - 1) * limit;
   const query = {
     authorId: new Types.ObjectId(accountId),
-    workflowStatus: { $in: ['mt_pending', 'ai_failed', 'ai_passed'] as WorkflowStatus[] },
+    workflowStatus: {
+      $in: ["mt_pending", "ai_failed", "ai_passed"] as WorkflowStatus[],
+    },
   };
 
   const [data, total] = await Promise.all([
@@ -837,11 +959,11 @@ const get_review_queue = async (accountId: string, page = 1, limit = 20) => {
 
 const confirm_signal = async (accountId: string, signalId: string) => {
   if (!Types.ObjectId.isValid(signalId)) {
-    throw new AppError('Invalid signal ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid signal ID", httpStatus.BAD_REQUEST);
   }
 
   const account = await Account_Model.findById(accountId);
-  const isAdmin = account?.role === 'ADMIN';
+  const isAdmin = account?.role === "ADMIN";
 
   if (!isAdmin) {
     await assertMasterApproved(accountId);
@@ -849,11 +971,14 @@ const confirm_signal = async (accountId: string, signalId: string) => {
 
   const signal = await Signal_Model.findById(signalId);
   if (!signal) {
-    throw new AppError('Signal not found', httpStatus.NOT_FOUND);
+    throw new AppError("Signal not found", httpStatus.NOT_FOUND);
   }
 
   if (!isAdmin && signal.authorId.toString() !== accountId) {
-    throw new AppError('You can only confirm your own signals', httpStatus.FORBIDDEN);
+    throw new AppError(
+      "You can only confirm your own signals",
+      httpStatus.FORBIDDEN,
+    );
   }
 
   if (
@@ -861,14 +986,14 @@ const confirm_signal = async (accountId: string, signalId: string) => {
     !CONFIRMABLE_WORKFLOW_STATUSES.includes(signal.workflowStatus)
   ) {
     throw new AppError(
-      'Signal is not awaiting Master confirmation',
-      httpStatus.BAD_REQUEST
+      "Signal is not awaiting Master confirmation",
+      httpStatus.BAD_REQUEST,
     );
   }
 
   const published = await publishApprovedSignal(signal, accountId);
 
-  await safeAudit('signal_mt_confirmed', accountId, 'signal', signalId, {
+  await safeAudit("signal_mt_confirmed", accountId, "signal", signalId, {
     publishType: signal.publishType,
   });
 
@@ -878,14 +1003,14 @@ const confirm_signal = async (accountId: string, signalId: string) => {
 const reject_signal = async (
   accountId: string,
   signalId: string,
-  rejectionReason?: string
+  rejectionReason?: string,
 ) => {
   if (!Types.ObjectId.isValid(signalId)) {
-    throw new AppError('Invalid signal ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid signal ID", httpStatus.BAD_REQUEST);
   }
 
   const account = await Account_Model.findById(accountId);
-  const isAdmin = account?.role === 'ADMIN';
+  const isAdmin = account?.role === "ADMIN";
 
   if (!isAdmin) {
     await assertMasterApproved(accountId);
@@ -893,11 +1018,14 @@ const reject_signal = async (
 
   const signal = await Signal_Model.findById(signalId);
   if (!signal) {
-    throw new AppError('Signal not found', httpStatus.NOT_FOUND);
+    throw new AppError("Signal not found", httpStatus.NOT_FOUND);
   }
 
   if (!isAdmin && signal.authorId.toString() !== accountId) {
-    throw new AppError('You can only reject your own signals', httpStatus.FORBIDDEN);
+    throw new AppError(
+      "You can only reject your own signals",
+      httpStatus.FORBIDDEN,
+    );
   }
 
   if (
@@ -905,31 +1033,31 @@ const reject_signal = async (
     !REJECTABLE_WORKFLOW_STATUSES.includes(signal.workflowStatus)
   ) {
     throw new AppError(
-      'Signal cannot be rejected in its current state',
-      httpStatus.BAD_REQUEST
+      "Signal cannot be rejected in its current state",
+      httpStatus.BAD_REQUEST,
     );
   }
 
   const updated = await Signal_Model.findByIdAndUpdate(
     signalId,
     {
-      workflowStatus: 'rejected',
-      status: 'canceled',
-      outcome: 'cancelled',
+      workflowStatus: "rejected",
+      status: "canceled",
+      outcome: "cancelled",
       mtReview: {
         confirmedAt: null,
         confirmedBy: new Types.ObjectId(accountId),
         rejectedAt: new Date(),
-        rejectionReason: rejectionReason || 'Rejected by Master Trader',
+        rejectionReason: rejectionReason || "Rejected by Master Trader",
       },
     },
-    { new: true }
+    { new: true },
   );
 
-  await syncCopiedTradesMasterOutcome(signalId, 'cancelled');
-  await notifyCopiersOfSignalClosed(signalId, 'cancelled');
+  await syncCopiedTradesMasterOutcome(signalId, "cancelled");
+  await notifyCopiersOfSignalClosed(signalId, "cancelled");
 
-  await safeAudit('signal_mt_rejected', accountId, 'signal', signalId, {
+  await safeAudit("signal_mt_rejected", accountId, "signal", signalId, {
     rejectionReason,
   });
 
@@ -938,55 +1066,67 @@ const reject_signal = async (
 
 const resubmit_ai_validation = async (accountId: string, signalId: string) => {
   if (!Types.ObjectId.isValid(signalId)) {
-    throw new AppError('Invalid signal ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid signal ID", httpStatus.BAD_REQUEST);
   }
 
   await assertMasterApproved(accountId);
 
   const signal = await Signal_Model.findById(signalId);
   if (!signal) {
-    throw new AppError('Signal not found', httpStatus.NOT_FOUND);
+    throw new AppError("Signal not found", httpStatus.NOT_FOUND);
   }
 
   if (signal.authorId.toString() !== accountId) {
-    throw new AppError('Forbidden', httpStatus.FORBIDDEN);
+    throw new AppError("Forbidden", httpStatus.FORBIDDEN);
   }
 
   if (
     !signal.workflowStatus ||
     !RESUBMIT_AI_WORKFLOW_STATUSES.includes(signal.workflowStatus)
   ) {
-    throw new AppError('Signal cannot be resubmitted for AI validation', httpStatus.BAD_REQUEST);
+    throw new AppError(
+      "Signal cannot be resubmitted for AI validation",
+      httpStatus.BAD_REQUEST,
+    );
   }
 
-  await Signal_Model.findByIdAndUpdate(signalId, { workflowStatus: 'ai_pending' });
+  await Signal_Model.findByIdAndUpdate(signalId, {
+    workflowStatus: "ai_pending",
+  });
   try {
     return await runAiValidationForSignal(signalId, accountId);
   } catch (err) {
-    await Signal_Model.findByIdAndUpdate(signalId, { workflowStatus: signal.workflowStatus });
+    await Signal_Model.findByIdAndUpdate(signalId, {
+      workflowStatus: signal.workflowStatus,
+    });
     throw err;
   }
 };
 
 const ai_assist_signal = async (accountId: string, signalId: string) => {
   if (!Types.ObjectId.isValid(signalId)) {
-    throw new AppError('Invalid signal ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid signal ID", httpStatus.BAD_REQUEST);
   }
 
   await assertMasterApproved(accountId);
 
   const signal = await Signal_Model.findById(signalId);
   if (!signal) {
-    throw new AppError('Signal not found', httpStatus.NOT_FOUND);
+    throw new AppError("Signal not found", httpStatus.NOT_FOUND);
   }
 
   if (signal.authorId.toString() !== accountId) {
-    throw new AppError('You can only request assist on your own signals', httpStatus.FORBIDDEN);
+    throw new AppError(
+      "You can only request assist on your own signals",
+      httpStatus.FORBIDDEN,
+    );
   }
 
-  const result = await ai_services.assist_master_signal(signalToValidationInput(signal));
+  const result = await ai_services.assist_master_signal(
+    signalToValidationInput(signal),
+  );
 
-  await safeAudit('signal_ai_assist', accountId, 'signal', signalId, {
+  await safeAudit("signal_ai_assist", accountId, "signal", signalId, {
     model: result.model,
   });
 
@@ -998,24 +1138,27 @@ const ai_assist_signal = async (accountId: string, signalId: string) => {
  */
 const delete_signal = async (accountId: string, signalId: string) => {
   if (!Types.ObjectId.isValid(signalId)) {
-    throw new AppError('Invalid signal ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid signal ID", httpStatus.BAD_REQUEST);
   }
 
   const signal = await Signal_Model.findById(signalId);
   if (!signal) {
-    throw new AppError('Signal not found', httpStatus.NOT_FOUND);
+    throw new AppError("Signal not found", httpStatus.NOT_FOUND);
   }
 
   if (signal.authorId.toString() !== accountId) {
     const account = await Account_Model.findById(accountId);
-    if (account?.role !== 'ADMIN') {
-      throw new AppError('You can only delete your own signals', httpStatus.FORBIDDEN);
+    if (account?.role !== "ADMIN") {
+      throw new AppError(
+        "You can only delete your own signals",
+        httpStatus.FORBIDDEN,
+      );
     }
   }
 
-  await Signal_Model.findByIdAndUpdate(signalId, { status: 'expired' });
+  await Signal_Model.findByIdAndUpdate(signalId, { status: "expired" });
 
-  return { message: 'Signal deleted successfully' };
+  return { message: "Signal deleted successfully" };
 };
 
 /**
@@ -1023,25 +1166,29 @@ const delete_signal = async (accountId: string, signalId: string) => {
  */
 const apply_filters = (query: any, filters: TSignalFilters) => {
   // Search by symbol or title
-  if (filters.search && typeof filters.search === 'string' && filters.search.trim()) {
+  if (
+    filters.search &&
+    typeof filters.search === "string" &&
+    filters.search.trim()
+  ) {
     const searchTerm = filters.search.trim();
     query.$or = [
-      { symbol: { $regex: searchTerm, $options: 'i' } },
-      { title: { $regex: searchTerm, $options: 'i' } },
+      { symbol: { $regex: searchTerm, $options: "i" } },
+      { title: { $regex: searchTerm, $options: "i" } },
     ];
   }
 
   if (filters.assetType) query.assetType = filters.assetType;
   if (filters.signalType) query.signalType = filters.signalType;
   if (filters.symbol) {
-    query.symbol = { $regex: `^${filters.symbol.trim()}$`, $options: 'i' };
+    query.symbol = { $regex: `^${filters.symbol.trim()}$`, $options: "i" };
   }
-  
+
   // Handle status filtering (support virtual statuses won/lost/hit_target/stopped_out/pending)
   if (filters.status) {
     if (filters.status === "all") {
       // No status filter applied
-    } else if (filters.status === 'hit_target' || filters.status === 'won') {
+    } else if (filters.status === "hit_target" || filters.status === "won") {
       // Prefer explicit outcome; include legacy completed/won rows still pending
       const match = hitTargetMatch();
       if (query.$or || query.$and) {
@@ -1053,7 +1200,7 @@ const apply_filters = (query: any, filters: TSignalFilters) => {
       } else {
         Object.assign(query, match);
       }
-    } else if (filters.status === 'stopped_out' || filters.status === 'lost') {
+    } else if (filters.status === "stopped_out" || filters.status === "lost") {
       const match = stoppedOutMatch();
       if (query.$or || query.$and) {
         query.$and = [...((query.$and as unknown[]) || []), match];
@@ -1064,23 +1211,23 @@ const apply_filters = (query: any, filters: TSignalFilters) => {
       } else {
         Object.assign(query, match);
       }
-    } else if (filters.status === 'pending') {
-      query.status = { $in: ['active', 'scheduled', 'draft'] };
-      query.outcome = 'pending';
-    } else if (filters.status === 'published') {
-      query.status = 'active';
-    } else if (filters.status === 'closed') {
+    } else if (filters.status === "pending") {
+      query.status = { $in: ["active", "scheduled", "draft"] };
+      query.outcome = "pending";
+    } else if (filters.status === "published") {
+      query.status = "active";
+    } else if (filters.status === "closed") {
       // Backward-compat: legacy 'closed' filter maps to 'completed'
-      query.status = 'completed';
-    } else if (filters.status === 'cancelled') {
-      query.status = 'canceled';
+      query.status = "completed";
+    } else if (filters.status === "cancelled") {
+      query.status = "canceled";
     } else {
       query.status = filters.status;
     }
   }
 
   if (filters.outcome) {
-    if (filters.outcome === 'hit_target') {
+    if (filters.outcome === "hit_target") {
       const match = hitTargetMatch();
       if (query.$or || query.$and) {
         query.$and = [...((query.$and as unknown[]) || []), match];
@@ -1091,7 +1238,7 @@ const apply_filters = (query: any, filters: TSignalFilters) => {
       } else {
         Object.assign(query, match);
       }
-    } else if (filters.outcome === 'stopped_out') {
+    } else if (filters.outcome === "stopped_out") {
       const match = stoppedOutMatch();
       if (query.$or || query.$and) {
         query.$and = [...((query.$and as unknown[]) || []), match];
@@ -1102,11 +1249,11 @@ const apply_filters = (query: any, filters: TSignalFilters) => {
       } else {
         Object.assign(query, match);
       }
-    } else if (filters.outcome === 'cancelled') {
+    } else if (filters.outcome === "cancelled") {
       const match = {
         $or: [
-          { outcome: 'cancelled' },
-          { status: { $in: ['canceled', 'cancelled'] } },
+          { outcome: "cancelled" },
+          { status: { $in: ["canceled", "cancelled"] } },
         ],
       };
       if (query.$or || query.$and) {
@@ -1131,17 +1278,20 @@ const get_signals = async (
   page: number = 1,
   limit: number = 20,
   filters: TSignalFilters = {},
-  viewerAccountId?: string
+  viewerAccountId?: string,
 ) => {
   const skip = (page - 1) * limit;
   const query: Record<string, unknown> = {};
 
   apply_filters(query, filters);
 
-  if (!filters.status || filters.status === '') {
-    query.status = 'active';
+  if (!filters.status || filters.status === "") {
+    query.status = "active";
     const workflowFilter = {
-      $or: [{ workflowStatus: 'active' }, { workflowStatus: { $exists: false } }],
+      $or: [
+        { workflowStatus: "active" },
+        { workflowStatus: { $exists: false } },
+      ],
     };
     if (query.$or) {
       query.$and = [{ $or: query.$or as unknown[] }, workflowFilter];
@@ -1154,7 +1304,7 @@ const get_signals = async (
   const sortQuery: Record<string, any> = { publishedAt: -1, createdAt: -1 };
 
   const signals = await Signal_Model.find(query)
-    .populate('authorId', 'name userProfileUrl')
+    .populate("authorId", "name userProfileUrl")
     .sort(sortQuery)
     .skip(skip)
     .limit(limit);
@@ -1168,20 +1318,26 @@ const get_signals = async (
       Copied_Trade_Model.find({
         userId: new Types.ObjectId(viewerAccountId),
         signalId: { $in: signalIds },
-      }).select('signalId'),
+      }).select("signalId"),
       SignalEngagement_Model.find({
         accountId: new Types.ObjectId(viewerAccountId),
         signalId: { $in: signalIds },
-        type: { $in: ['like', 'bookmark'] },
-      }).select('signalId type'),
+        type: { $in: ["like", "bookmark"] },
+      }).select("signalId type"),
     ]);
 
-    const copiedSignalIdsSet = new Set(copiedTrades.map((t) => t.signalId.toString()));
+    const copiedSignalIdsSet = new Set(
+      copiedTrades.map((t) => t.signalId.toString()),
+    );
     const likedSignalIdsSet = new Set(
-      engagements.filter((e) => e.type === 'like').map((e) => e.signalId.toString())
+      engagements
+        .filter((e) => e.type === "like")
+        .map((e) => e.signalId.toString()),
     );
     const bookmarkedSignalIdsSet = new Set(
-      engagements.filter((e) => e.type === 'bookmark').map((e) => e.signalId.toString())
+      engagements
+        .filter((e) => e.type === "bookmark")
+        .map((e) => e.signalId.toString()),
     );
 
     enrichedData = enrichedData.map((s: any) => {
@@ -1216,18 +1372,18 @@ const get_signals = async (
 const get_signal_by_id = async (
   signalId: string,
   includeUnpublished = false,
-  viewerAccountId?: string
+  viewerAccountId?: string,
 ) => {
   if (!Types.ObjectId.isValid(signalId)) {
-    throw new AppError('Invalid signal ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid signal ID", httpStatus.BAD_REQUEST);
   }
 
   const signal = await Signal_Model.findById(signalId).populate(
-    'authorId',
-    'name userProfileUrl'
+    "authorId",
+    "name userProfileUrl",
   );
   if (!signal) {
-    throw new AppError('Signal not found', httpStatus.NOT_FOUND);
+    throw new AppError("Signal not found", httpStatus.NOT_FOUND);
   }
 
   // The signal owner and admins can always view the signal regardless of its
@@ -1242,33 +1398,35 @@ const get_signal_by_id = async (
 
   let isAdmin = false;
   if (!isOwner && viewerAccountId) {
-    const viewerAccount = await Account_Model.findById(viewerAccountId).select('role');
-    isAdmin = viewerAccount?.role === 'ADMIN';
+    const viewerAccount =
+      await Account_Model.findById(viewerAccountId).select("role");
+    isAdmin = viewerAccount?.role === "ADMIN";
   }
 
   if (!includeUnpublished && !isOwner && !isAdmin) {
     const isActive =
-      signal.status === 'active' &&
-      (signal.workflowStatus === 'active' || signal.workflowStatus === undefined);
+      signal.status === "active" &&
+      (signal.workflowStatus === "active" ||
+        signal.workflowStatus === undefined);
 
     if (!isActive) {
-      throw new AppError('Signal not found', httpStatus.NOT_FOUND);
+      throw new AppError("Signal not found", httpStatus.NOT_FOUND);
     }
   }
 
   if (!isOwner && !isAdmin && signal.isPremium && viewerAccountId) {
     const viewer = await Account_Model.findById(viewerAccountId);
-    if (viewer && viewer.role !== 'ADMIN' && viewer.role !== 'MASTER') {
-      const tier = (viewer.subscriptionTier || 'free').toLowerCase();
-      const status = (viewer.subscriptionStatus || '').toLowerCase();
+    if (viewer && viewer.role !== "ADMIN" && viewer.role !== "MASTER") {
+      const tier = (viewer.subscriptionTier || "free").toLowerCase();
+      const status = (viewer.subscriptionStatus || "").toLowerCase();
       const hasAccess =
-        ['pro', 'master'].includes(tier) &&
-        ['active', 'trialing'].includes(status);
+        ["pro", "master"].includes(tier) &&
+        ["active", "trialing"].includes(status);
 
       if (!hasAccess) {
         throw new AppError(
-          'Upgrade to Pro to access premium signals',
-          httpStatus.FORBIDDEN
+          "Upgrade to Pro to access premium signals",
+          httpStatus.FORBIDDEN,
         );
       }
 
@@ -1276,8 +1434,8 @@ const get_signal_by_id = async (
     }
   } else if (signal.isPremium && !viewerAccountId) {
     throw new AppError(
-      'Authentication required to view premium signals',
-      httpStatus.UNAUTHORIZED
+      "Authentication required to view premium signals",
+      httpStatus.UNAUTHORIZED,
     );
   }
 
@@ -1294,12 +1452,12 @@ const get_signal_by_id = async (
       SignalEngagement_Model.find({
         accountId: new Types.ObjectId(viewerAccountId),
         signalId: new Types.ObjectId(signalId),
-        type: { $in: ['like', 'bookmark'] },
-      }).select('type'),
+        type: { $in: ["like", "bookmark"] },
+      }).select("type"),
     ]);
     isCopied = !!copyExists;
-    isLiked = engagements.some((e) => e.type === 'like');
-    isBookmarked = engagements.some((e) => e.type === 'bookmark');
+    isLiked = engagements.some((e) => e.type === "like");
+    isBookmarked = engagements.some((e) => e.type === "bookmark");
   }
 
   return {
@@ -1314,10 +1472,12 @@ const get_my_signals = async (
   accountId: string,
   page: number = 1,
   limit: number = 20,
-  filters: TSignalFilters = {}
+  filters: TSignalFilters = {},
 ) => {
   const skip = (page - 1) * limit;
-  const query: Record<string, unknown> = { authorId: new Types.ObjectId(accountId) };
+  const query: Record<string, unknown> = {
+    authorId: new Types.ObjectId(accountId),
+  };
 
   apply_filters(query, filters);
 
@@ -1344,18 +1504,20 @@ const get_my_signals = async (
  */
 const increment_view = async (signalId: string, viewerId?: string) => {
   if (!Types.ObjectId.isValid(signalId)) {
-    throw new AppError('Invalid signal ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid signal ID", httpStatus.BAD_REQUEST);
   }
 
   await Signal_Model.findByIdAndUpdate(signalId, { $inc: { viewCount: 1 } });
 
   if (viewerId) {
-    contribution_services.track_contribution(viewerId, 'view_signal', signalId);
+    contribution_services.track_contribution(viewerId, "view_signal", signalId);
   }
 };
 
 const getEngagementCounts = async (signalId: string) => {
-  const signal = await Signal_Model.findById(signalId).select('likeCount bookmarkCount');
+  const signal = await Signal_Model.findById(signalId).select(
+    "likeCount bookmarkCount",
+  );
   return {
     likeCount: Math.max(0, signal?.likeCount ?? 0),
     bookmarkCount: Math.max(0, signal?.bookmarkCount ?? 0),
@@ -1367,25 +1529,25 @@ const getEngagementCounts = async (signalId: string) => {
  */
 const like_signal = async (accountId: string, signalId: string) => {
   if (!Types.ObjectId.isValid(signalId)) {
-    throw new AppError('Invalid signal ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid signal ID", httpStatus.BAD_REQUEST);
   }
 
   const signal = await Signal_Model.findById(signalId);
   if (!signal) {
-    throw new AppError('Signal not found', httpStatus.NOT_FOUND);
+    throw new AppError("Signal not found", httpStatus.NOT_FOUND);
   }
 
   const existing = await SignalEngagement_Model.findOneAndDelete({
     accountId: new Types.ObjectId(accountId),
     signalId: new Types.ObjectId(signalId),
-    type: 'like',
+    type: "like",
   });
 
   if (existing) {
     await Signal_Model.findByIdAndUpdate(signalId, { $inc: { likeCount: -1 } });
     const counts = await getEngagementCounts(signalId);
     return {
-      message: 'Unliked',
+      message: "Unliked",
       isLiked: false,
       likeCount: counts.likeCount,
     };
@@ -1394,14 +1556,14 @@ const like_signal = async (accountId: string, signalId: string) => {
   await SignalEngagement_Model.create({
     accountId: new Types.ObjectId(accountId),
     signalId: new Types.ObjectId(signalId),
-    type: 'like',
+    type: "like",
   });
   await Signal_Model.findByIdAndUpdate(signalId, { $inc: { likeCount: 1 } });
-  contribution_services.track_contribution(accountId, 'like_signal', signalId);
+  contribution_services.track_contribution(accountId, "like_signal", signalId);
   const counts = await getEngagementCounts(signalId);
 
   return {
-    message: 'Liked',
+    message: "Liked",
     isLiked: true,
     likeCount: counts.likeCount,
   };
@@ -1412,18 +1574,18 @@ const like_signal = async (accountId: string, signalId: string) => {
  */
 const unlike_signal = async (accountId: string, signalId: string) => {
   if (!Types.ObjectId.isValid(signalId)) {
-    throw new AppError('Invalid signal ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid signal ID", httpStatus.BAD_REQUEST);
   }
 
   const signal = await Signal_Model.findById(signalId);
   if (!signal) {
-    throw new AppError('Signal not found', httpStatus.NOT_FOUND);
+    throw new AppError("Signal not found", httpStatus.NOT_FOUND);
   }
 
   const deleted = await SignalEngagement_Model.findOneAndDelete({
     accountId: new Types.ObjectId(accountId),
     signalId: new Types.ObjectId(signalId),
-    type: 'like',
+    type: "like",
   });
 
   if (deleted) {
@@ -1432,7 +1594,7 @@ const unlike_signal = async (accountId: string, signalId: string) => {
 
   const counts = await getEngagementCounts(signalId);
   return {
-    message: 'Unliked',
+    message: "Unliked",
     isLiked: false,
     likeCount: counts.likeCount,
   };
@@ -1443,25 +1605,27 @@ const unlike_signal = async (accountId: string, signalId: string) => {
  */
 const bookmark_signal = async (accountId: string, signalId: string) => {
   if (!Types.ObjectId.isValid(signalId)) {
-    throw new AppError('Invalid signal ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid signal ID", httpStatus.BAD_REQUEST);
   }
 
   const signal = await Signal_Model.findById(signalId);
   if (!signal) {
-    throw new AppError('Signal not found', httpStatus.NOT_FOUND);
+    throw new AppError("Signal not found", httpStatus.NOT_FOUND);
   }
 
   const existing = await SignalEngagement_Model.findOneAndDelete({
     accountId: new Types.ObjectId(accountId),
     signalId: new Types.ObjectId(signalId),
-    type: 'bookmark',
+    type: "bookmark",
   });
 
   if (existing) {
-    await Signal_Model.findByIdAndUpdate(signalId, { $inc: { bookmarkCount: -1 } });
+    await Signal_Model.findByIdAndUpdate(signalId, {
+      $inc: { bookmarkCount: -1 },
+    });
     const counts = await getEngagementCounts(signalId);
     return {
-      message: 'Unsaved',
+      message: "Unsaved",
       isBookmarked: false,
       bookmarkCount: counts.bookmarkCount,
     };
@@ -1470,14 +1634,20 @@ const bookmark_signal = async (accountId: string, signalId: string) => {
   await SignalEngagement_Model.create({
     accountId: new Types.ObjectId(accountId),
     signalId: new Types.ObjectId(signalId),
-    type: 'bookmark',
+    type: "bookmark",
   });
-  await Signal_Model.findByIdAndUpdate(signalId, { $inc: { bookmarkCount: 1 } });
-  contribution_services.track_contribution(accountId, 'bookmark_signal', signalId);
+  await Signal_Model.findByIdAndUpdate(signalId, {
+    $inc: { bookmarkCount: 1 },
+  });
+  contribution_services.track_contribution(
+    accountId,
+    "bookmark_signal",
+    signalId,
+  );
   const counts = await getEngagementCounts(signalId);
 
   return {
-    message: 'Saved',
+    message: "Saved",
     isBookmarked: true,
     bookmarkCount: counts.bookmarkCount,
   };
@@ -1488,27 +1658,29 @@ const bookmark_signal = async (accountId: string, signalId: string) => {
  */
 const unbookmark_signal = async (accountId: string, signalId: string) => {
   if (!Types.ObjectId.isValid(signalId)) {
-    throw new AppError('Invalid signal ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid signal ID", httpStatus.BAD_REQUEST);
   }
 
   const signal = await Signal_Model.findById(signalId);
   if (!signal) {
-    throw new AppError('Signal not found', httpStatus.NOT_FOUND);
+    throw new AppError("Signal not found", httpStatus.NOT_FOUND);
   }
 
   const deleted = await SignalEngagement_Model.findOneAndDelete({
     accountId: new Types.ObjectId(accountId),
     signalId: new Types.ObjectId(signalId),
-    type: 'bookmark',
+    type: "bookmark",
   });
 
   if (deleted) {
-    await Signal_Model.findByIdAndUpdate(signalId, { $inc: { bookmarkCount: -1 } });
+    await Signal_Model.findByIdAndUpdate(signalId, {
+      $inc: { bookmarkCount: -1 },
+    });
   }
 
   const counts = await getEngagementCounts(signalId);
   return {
-    message: 'Unsaved',
+    message: "Unsaved",
     isBookmarked: false,
     bookmarkCount: counts.bookmarkCount,
   };
@@ -1519,26 +1691,26 @@ const unbookmark_signal = async (accountId: string, signalId: string) => {
  */
 const share_signal = async (accountId: string, signalId: string) => {
   if (!Types.ObjectId.isValid(signalId)) {
-    throw new AppError('Invalid signal ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid signal ID", httpStatus.BAD_REQUEST);
   }
 
   const signal = await Signal_Model.findById(signalId);
   if (!signal) {
-    throw new AppError('Signal not found', httpStatus.NOT_FOUND);
+    throw new AppError("Signal not found", httpStatus.NOT_FOUND);
   }
 
-  contribution_services.track_contribution(accountId, 'share_signal', signalId);
-  return { message: 'Signal shared successfully' };
+  contribution_services.track_contribution(accountId, "share_signal", signalId);
+  return { message: "Signal shared successfully" };
 };
 
 const publish_scheduled_signals = async () => {
   const now = new Date();
-  
+
   const signals = await Signal_Model.find({
-    status: 'scheduled',
-    publishType: 'scheduled',
+    status: "scheduled",
+    publishType: "scheduled",
     scheduledAt: { $lte: now },
-    workflowStatus: { $in: ['active', null] },
+    workflowStatus: { $in: ["active", null] },
   });
 
   if (signals.length === 0) {
@@ -1554,15 +1726,15 @@ const publish_scheduled_signals = async () => {
       const updated = await Signal_Model.findOneAndUpdate(
         {
           _id: signal._id,
-          status: 'scheduled',
-          publishType: 'scheduled',
+          status: "scheduled",
+          publishType: "scheduled",
           scheduledAt: { $lte: now },
         },
         {
-          status: 'active',
+          status: "active",
           publishedAt: now,
         },
-        { new: true }
+        { new: true },
       );
 
       if (!updated) {
@@ -1571,21 +1743,26 @@ const publish_scheduled_signals = async () => {
 
       await Master_Model.findOneAndUpdate(
         { accountId: updated.authorId },
-        { $inc: { totalSignals: 1 } }
+        { $inc: { totalSignals: 1 } },
       );
 
       await contribution_services.track_contribution(
         updated.authorId.toString(),
-        'create_signal',
-        updated._id.toString()
+        "create_signal",
+        updated._id.toString(),
       );
 
-      await notifyFollowersOfNewSignal(updated._id.toString(), updated.authorId.toString());
-      
+      await notifyFollowersOfNewSignal(
+        updated._id.toString(),
+        updated.authorId.toString(),
+      );
+
       published++;
       notified++;
     } catch (error: any) {
-      logger.error(`Failed to publish scheduled signal ${signal._id}: ${error.message}`);
+      logger.error(
+        `Failed to publish scheduled signal ${signal._id}: ${error.message}`,
+      );
       errors++;
     }
   }
@@ -1593,38 +1770,42 @@ const publish_scheduled_signals = async () => {
   return { total: signals.length, published, notified, errors };
 };
 
-const toggle_featured_signal = async (signalId: string, isFeatured: boolean) => {
+const toggle_featured_signal = async (
+  signalId: string,
+  isFeatured: boolean,
+) => {
   if (!Types.ObjectId.isValid(signalId)) {
-    throw new AppError('Invalid signal ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid signal ID", httpStatus.BAD_REQUEST);
   }
 
   const signal = await Signal_Model.findByIdAndUpdate(
     signalId,
     { isFeatured },
-    { new: true }
+    { new: true },
   );
 
   if (!signal) {
-    throw new AppError('Signal not found', httpStatus.NOT_FOUND);
+    throw new AppError("Signal not found", httpStatus.NOT_FOUND);
   }
 
   return signal;
 };
 
 export const SIGNAL_STATUS_DEFINITIONS = {
-  active: 'Live signal visible to followers and subscribers. Set on instant publish or after MT confirms.',
-  scheduled: 'Waiting for scheduled publish time.',
-  completed: 'Trade finished by Master with PnL result logged.',
-  canceled: 'Rejected or canceled before/during review.',
-  expired: 'Soft-deleted signal (via delete action).',
-  draft: 'Not yet published; used during AI workflow.',
+  active:
+    "Live signal visible to followers and subscribers. Set on instant publish or after MT confirms.",
+  scheduled: "Waiting for scheduled publish time.",
+  completed: "Trade finished by Master with PnL result logged.",
+  canceled: "Rejected or canceled before/during review.",
+  expired: "Soft-deleted signal (via delete action).",
+  draft: "Not yet published; used during AI workflow.",
 };
 
 export const SIGNAL_OUTCOME_DEFINITIONS = {
-  pending: 'Signal is open; no final result yet.',
-  hit_target: 'Price reached target(s).',
-  stopped_out: 'Price hit stop loss.',
-  cancelled: 'Signal was canceled before a result.',
+  pending: "Signal is open; no final result yet.",
+  hit_target: "Price reached target(s).",
+  stopped_out: "Price hit stop loss.",
+  cancelled: "Signal was canceled before a result.",
 };
 
 export const signal_services = {

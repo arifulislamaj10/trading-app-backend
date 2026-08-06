@@ -13,7 +13,12 @@ const DEFAULT_LIMIT = 10;
  * Whitelist-only fields that users can update on their own profile.
  * Prevents privilege escalation (role, isVerified, subscriptionTier, etc.)
  */
-const ALLOWED_PROFILE_FIELDS = ['name', 'userProfileUrl', 'referralCode', 'timezone'];
+const ALLOWED_PROFILE_FIELDS = [
+  "name",
+  "userProfileUrl",
+  "referralCode",
+  "timezone",
+];
 
 const update_profile_into_db = async (req: Request) => {
   const email = req?.user?.email;
@@ -37,7 +42,7 @@ const update_profile_into_db = async (req: Request) => {
   // If referralCode is being updated, check for uniqueness and one-time limit
   if (updateData.referralCode) {
     const user = await Account_Model.findOne({ email });
-    
+
     if (!user) {
       throw new AppError("User not found", httpStatus.NOT_FOUND);
     }
@@ -47,16 +52,22 @@ const update_profile_into_db = async (req: Request) => {
       delete updateData.referralCode;
     } else {
       if (user.referralCodeChanged) {
-        throw new AppError("Referral code can only be changed once", httpStatus.BAD_REQUEST);
+        throw new AppError(
+          "Referral code can only be changed once",
+          httpStatus.BAD_REQUEST,
+        );
       }
 
-      const existingCode = await Account_Model.findOne({ 
+      const existingCode = await Account_Model.findOne({
         referralCode: updateData.referralCode,
-        email: { $ne: email } 
+        email: { $ne: email },
       });
-      
+
       if (existingCode) {
-        throw new AppError("Referral code is already taken", httpStatus.CONFLICT);
+        throw new AppError(
+          "Referral code is already taken",
+          httpStatus.CONFLICT,
+        );
       }
 
       // Set the flag for the update
@@ -73,18 +84,19 @@ const update_profile_into_db = async (req: Request) => {
     updateData.timezoneManuallySet = true;
   }
 
-  const result = await Account_Model.findOneAndUpdate(
-    { email },
-    updateData,
-    { new: true },
-  );
+  const result = await Account_Model.findOneAndUpdate({ email }, updateData, {
+    new: true,
+  });
 
   return result;
 };
 
 const get_all_users_from_db = async (query: Record<string, unknown>) => {
   const page = Number(query.page) || DEFAULT_PAGE;
-  const limit = Math.min(Number(query.limit) || DEFAULT_LIMIT, MAX_PAGINATION_LIMIT);
+  const limit = Math.min(
+    Number(query.limit) || DEFAULT_LIMIT,
+    MAX_PAGINATION_LIMIT,
+  );
   const skip = (page - 1) * limit;
 
   // Build filter object
@@ -94,16 +106,16 @@ const get_all_users_from_db = async (query: Record<string, unknown>) => {
   };
 
   // Search by name or email
-  if (query.search && typeof query.search === 'string' && query.search.trim()) {
+  if (query.search && typeof query.search === "string" && query.search.trim()) {
     const searchTerm = query.search.trim();
     filter.$or = [
-      { name: { $regex: searchTerm, $options: 'i' } },
-      { email: { $regex: searchTerm, $options: 'i' } },
+      { name: { $regex: searchTerm, $options: "i" } },
+      { email: { $regex: searchTerm, $options: "i" } },
     ];
   }
 
   // Filter by status
-  if (query.status && typeof query.status === 'string' && query.status.trim()) {
+  if (query.status && typeof query.status === "string" && query.status.trim()) {
     filter.accountStatus = query.status.trim().toUpperCase();
   }
 
@@ -111,12 +123,14 @@ const get_all_users_from_db = async (query: Record<string, unknown>) => {
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit)
-    .select('-password -twoFactorSecret -twoFactorBackupCodes -verificationCode -verificationCodeExpires -resetPasswordCode -resetPasswordExpire -lockedUntil');
+    .select(
+      "-password -twoFactorSecret -twoFactorBackupCodes -verificationCode -verificationCodeExpires -resetPasswordCode -resetPasswordExpire -lockedUntil",
+    );
 
   const total = await Account_Model.countDocuments(filter);
 
   // Transform users to match frontend expectations
-  const transformedUsers = users.map(user => {
+  const transformedUsers = users.map((user) => {
     const userObj = user.toObject();
     return {
       ...userObj,
@@ -143,7 +157,9 @@ const get_single_user_from_db = async (id: string) => {
     throw new AppError("Invalid user ID", httpStatus.BAD_REQUEST);
   }
 
-  const result = await Account_Model.findById(id).select('-password -twoFactorSecret -twoFactorBackupCodes -verificationCode -verificationCodeExpires -resetPasswordCode -resetPasswordExpire -lockedUntil');
+  const result = await Account_Model.findById(id).select(
+    "-password -twoFactorSecret -twoFactorBackupCodes -verificationCode -verificationCodeExpires -resetPasswordCode -resetPasswordExpire -lockedUntil",
+  );
 
   if (!result) {
     throw new AppError("User not found", httpStatus.NOT_FOUND);
@@ -157,18 +173,23 @@ const update_user_status = async (id: string, status: string) => {
     throw new AppError("Invalid user ID", httpStatus.BAD_REQUEST);
   }
 
-  const validStatuses = ['ACTIVE', 'INACTIVE', 'SUSPENDED'];
+  const validStatuses = ["ACTIVE", "INACTIVE", "SUSPENDED"];
   const upperStatus = status.toUpperCase();
-  
+
   if (!validStatuses.includes(upperStatus)) {
-    throw new AppError("Invalid status. Must be 'ACTIVE', 'INACTIVE', or 'SUSPENDED'", httpStatus.BAD_REQUEST);
+    throw new AppError(
+      "Invalid status. Must be 'ACTIVE', 'INACTIVE', or 'SUSPENDED'",
+      httpStatus.BAD_REQUEST,
+    );
   }
 
   const result = await Account_Model.findByIdAndUpdate(
     id,
     { accountStatus: upperStatus },
     { new: true },
-  ).select('-password -twoFactorSecret -twoFactorBackupCodes -verificationCode -verificationCodeExpires -resetPasswordCode -resetPasswordExpire -lockedUntil');
+  ).select(
+    "-password -twoFactorSecret -twoFactorBackupCodes -verificationCode -verificationCodeExpires -resetPasswordCode -resetPasswordExpire -lockedUntil",
+  );
 
   if (!result) {
     throw new AppError("User not found", httpStatus.NOT_FOUND);
@@ -194,7 +215,9 @@ const soft_delete_user = async (id: string) => {
     id,
     { isDeleted: true },
     { new: true },
-  ).select('-password -twoFactorSecret -twoFactorBackupCodes -verificationCode -verificationCodeExpires -resetPasswordCode -resetPasswordExpire -lockedUntil');
+  ).select(
+    "-password -twoFactorSecret -twoFactorBackupCodes -verificationCode -verificationCodeExpires -resetPasswordCode -resetPasswordExpire -lockedUntil",
+  );
 
   if (!result) {
     throw new AppError("User not found", httpStatus.NOT_FOUND);
@@ -221,12 +244,12 @@ const isValidTimezone = (timezone: string) => {
  */
 const sync_timezone_to_profile = async (email: string, timezone: string) => {
   if (!isValidTimezone(timezone)) {
-    throw new AppError('Invalid IANA timezone', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid IANA timezone", httpStatus.BAD_REQUEST);
   }
 
   const user = await Account_Model.findOne({ email });
   if (!user) {
-    throw new AppError('User not found', httpStatus.NOT_FOUND);
+    throw new AppError("User not found", httpStatus.NOT_FOUND);
   }
 
   if (user.timezoneManuallySet) {
@@ -237,11 +260,7 @@ const sync_timezone_to_profile = async (email: string, timezone: string) => {
     return user;
   }
 
-  return Account_Model.findOneAndUpdate(
-    { email },
-    { timezone },
-    { new: true }
-  );
+  return Account_Model.findOneAndUpdate({ email }, { timezone }, { new: true });
 };
 
 export const user_services = {

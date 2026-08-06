@@ -2,7 +2,9 @@ import { uploadToS3 } from "../../utils/s3";
 import { resolveUploadFolder } from "../../utils/media_types";
 import logger from "../../configs/logger";
 
-export const uploadSingleFile = async (file: Express.Multer.File): Promise<string> => {
+export const uploadSingleFile = async (
+  file: Express.Multer.File,
+): Promise<string> => {
   if (!file) {
     throw new Error("No file provided");
   }
@@ -20,13 +22,16 @@ export const uploadSingleFile = async (file: Express.Multer.File): Promise<strin
     const url = await uploadToS3(file, folder);
     return url;
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     logger.error(`Failed to upload single file: ${errorMessage}`, error);
     throw new Error(`File upload failed: ${errorMessage}`);
   }
 };
 
-export const uploadMultipleFiles = async (files: Express.Multer.File[]): Promise<string[]> => {
+export const uploadMultipleFiles = async (
+  files: Express.Multer.File[],
+): Promise<string[]> => {
   if (!files || files.length === 0) {
     throw new Error("No files provided");
   }
@@ -48,15 +53,22 @@ export const uploadMultipleFiles = async (files: Express.Multer.File[]): Promise
           const folder = resolveUploadFolder(file);
           return await uploadToS3(file, folder);
         } catch (error: unknown) {
-          const errorMessage = error instanceof Error ? error.message : "Unknown error";
-          logger.error(`Failed to upload file ${file.originalname}: ${errorMessage}`, error);
-          throw new Error(`Failed to upload ${file.originalname}: ${errorMessage}`);
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
+          logger.error(
+            `Failed to upload file ${file.originalname}: ${errorMessage}`,
+            error,
+          );
+          throw new Error(
+            `Failed to upload ${file.originalname}: ${errorMessage}`,
+          );
         }
-      })
+      }),
     );
     return urls;
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     logger.error(`Failed to upload multiple files: ${errorMessage}`, error);
     throw new Error(`Multiple files upload failed: ${errorMessage}`);
   }

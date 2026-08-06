@@ -1,6 +1,6 @@
-import cron from 'node-cron';
-import { Subscription_Model } from '../modules/subscription/subscription.schema';
-import logger from '../configs/logger';
+import cron from "node-cron";
+import { Subscription_Model } from "../modules/subscription/subscription.schema";
+import logger from "../configs/logger";
 
 /**
  * Reset signal usage for subscriptions whose billing cycle has ended.
@@ -12,7 +12,7 @@ const resetExpiredSignalUsage = async () => {
 
   // Find active subscriptions whose billing period has expired
   const expiredSubscriptions = await Subscription_Model.find({
-    status: { $in: ['active', 'trialing'] },
+    status: { $in: ["active", "trialing"] },
     currentPeriodEnd: { $lte: now },
     signalsUsed: { $gt: 0 },
   });
@@ -30,15 +30,19 @@ const resetExpiredSignalUsage = async () => {
         signalsUsed: 0,
       });
       resetCount++;
-      logger.info(`✅ Reset signal usage for subscription ${sub._id} (account: ${sub.accountId})`);
+      logger.info(
+        `✅ Reset signal usage for subscription ${sub._id} (account: ${sub.accountId})`,
+      );
     } catch (error: any) {
       errorCount++;
-      logger.error(`❌ Failed to reset signal usage for subscription ${sub._id}: ${error.message}`);
+      logger.error(
+        `❌ Failed to reset signal usage for subscription ${sub._id}: ${error.message}`,
+      );
     }
   }
 
   logger.info(
-    `🔄 Signal usage reset complete: ${resetCount} reset, ${errorCount} errors, ${expiredSubscriptions.length} total`
+    `🔄 Signal usage reset complete: ${resetCount} reset, ${errorCount} errors, ${expiredSubscriptions.length} total`,
   );
 };
 
@@ -47,10 +51,10 @@ const resetExpiredSignalUsage = async () => {
  * Change cron expression if you need different frequency
  */
 export const scheduleSignalUsageReset = () => {
-  cron.schedule('0 * * * *', async () => {
-    logger.info('⏰ Running signal usage reset job...');
+  cron.schedule("0 * * * *", async () => {
+    logger.info("⏰ Running signal usage reset job...");
     await resetExpiredSignalUsage();
   });
 
-  logger.info('📅 Signal usage reset scheduled (every hour)');
+  logger.info("📅 Signal usage reset scheduled (every hour)");
 };

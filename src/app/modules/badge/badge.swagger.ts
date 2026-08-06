@@ -1,50 +1,53 @@
 export const badgeSwaggerDocs = {
-  '/api/v1/badges': {
+  "/api/v1/badges": {
     get: {
-      tags: ['Badges'],
-      summary: 'Get badge catalog for the authenticated user',
+      tags: ["Badges"],
+      summary: "Get badge catalog for the authenticated user",
       description:
-        'Returns all badges for the user role (USER or MASTER) with earned status and optional progress.',
+        "Returns all badges for the user role (USER or MASTER) with earned status and optional progress.",
       security: [{ bearerAuth: [] }],
       responses: {
         200: {
-          description: 'Badges fetched successfully',
+          description: "Badges fetched successfully",
           content: {
-            'application/json': {
+            "application/json": {
               schema: {
-                type: 'object',
+                type: "object",
                 properties: {
-                  success: { type: 'boolean', example: true },
-                  message: { type: 'string' },
+                  success: { type: "boolean", example: true },
+                  message: { type: "string" },
                   data: {
-                    type: 'object',
+                    type: "object",
                     properties: {
-                      role: { type: 'string', enum: ['USER', 'MASTER'] },
+                      role: { type: "string", enum: ["USER", "MASTER"] },
                       summary: {
-                        type: 'object',
+                        type: "object",
                         properties: {
-                          earned: { type: 'number', example: 2 },
-                          total: { type: 'number', example: 7 },
+                          earned: { type: "number", example: 2 },
+                          total: { type: "number", example: 7 },
                         },
                       },
                       badges: {
-                        type: 'array',
+                        type: "array",
                         items: {
-                          type: 'object',
+                          type: "object",
                           properties: {
-                            key: { type: 'string', example: 'first_signal' },
-                            name: { type: 'string', example: 'First signal' },
-                            description: { type: 'string', example: 'Log your first trade' },
-                            iconKey: { type: 'string' },
-                            iconUrl: { type: 'string' },
-                            earned: { type: 'boolean' },
-                            earnedAt: { type: 'string', nullable: true },
+                            key: { type: "string", example: "first_signal" },
+                            name: { type: "string", example: "First signal" },
+                            description: {
+                              type: "string",
+                              example: "Log your first trade",
+                            },
+                            iconKey: { type: "string" },
+                            iconUrl: { type: "string" },
+                            earned: { type: "boolean" },
+                            earnedAt: { type: "string", nullable: true },
                             progress: {
-                              type: 'object',
+                              type: "object",
                               nullable: true,
                               properties: {
-                                current: { type: 'number' },
-                                target: { type: 'number' },
+                                current: { type: "number" },
+                                target: { type: "number" },
                               },
                             },
                           },
@@ -60,20 +63,20 @@ export const badgeSwaggerDocs = {
       },
     },
   },
-  '/api/v1/badges/earned': {
+  "/api/v1/badges/earned": {
     get: {
-      tags: ['Badges'],
-      summary: 'Get earned badges only',
+      tags: ["Badges"],
+      summary: "Get earned badges only",
       security: [{ bearerAuth: [] }],
-      responses: { 200: { description: 'Earned badges list' } },
+      responses: { 200: { description: "Earned badges list" } },
     },
   },
-  '/api/v1/badges/summary': {
+  "/api/v1/badges/summary": {
     get: {
-      tags: ['Badges'],
-      summary: 'Get badge summary with recently earned',
+      tags: ["Badges"],
+      summary: "Get badge summary with recently earned",
       security: [{ bearerAuth: [] }],
-      responses: { 200: { description: 'Badge summary' } },
+      responses: { 200: { description: "Badge summary" } },
     },
   },
 };

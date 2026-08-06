@@ -32,8 +32,9 @@ export const uploadFile = async (req: Request, res: Response) => {
       message: "No file uploaded",
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+
     // Enhanced logging for debugging
     logger.error("File upload failed", {
       error: errorMessage,
@@ -42,10 +43,12 @@ export const uploadFile = async (req: Request, res: Response) => {
       filesCount: req.files ? (req.files as Express.Multer.File[]).length : 0,
     });
 
-    const statusCode = errorMessage.includes("Invalid file type") || 
-                       errorMessage.includes("extension does not match") ||
-                       errorMessage.includes("too large")
-                       ? 400 : 500;
+    const statusCode =
+      errorMessage.includes("Invalid file type") ||
+      errorMessage.includes("extension does not match") ||
+      errorMessage.includes("too large")
+        ? 400
+        : 500;
     const message =
       statusCode === 400
         ? errorMessage

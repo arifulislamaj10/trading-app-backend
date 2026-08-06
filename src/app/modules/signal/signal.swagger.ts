@@ -3,17 +3,61 @@ export const signalSwaggerDocs = {
     get: {
       tags: ["Signals"],
       summary: "List all signals (public)",
-      description: "Get paginated list of signals with optional filters. Active signals shown by default.",
+      description:
+        "Get paginated list of signals with optional filters. Active signals shown by default.",
       parameters: [
         { name: "page", in: "query", schema: { type: "integer", default: 1 } },
-        { name: "limit", in: "query", schema: { type: "integer", default: 20, maximum: 100 } },
-        { name: "search", in: "query", schema: { type: "string" }, description: "Search by signal title or symbol" },
-        { name: "assetType", in: "query", schema: { type: "string", enum: ["forex", "crypto", "stocks", "indices", "commodities"] } },
-        { name: "signalType", in: "query", schema: { type: "string", enum: ["long", "short"] } },
-        { name: "status", in: "query", schema: { type: "string", enum: ["draft", "scheduled", "active", "completed", "expired", "canceled"] } },
-        { name: "publishType", in: "query", schema: { type: "string", enum: ["instant", "scheduled"] } },
+        {
+          name: "limit",
+          in: "query",
+          schema: { type: "integer", default: 20, maximum: 100 },
+        },
+        {
+          name: "search",
+          in: "query",
+          schema: { type: "string" },
+          description: "Search by signal title or symbol",
+        },
+        {
+          name: "assetType",
+          in: "query",
+          schema: {
+            type: "string",
+            enum: ["forex", "crypto", "stocks", "indices", "commodities"],
+          },
+        },
+        {
+          name: "signalType",
+          in: "query",
+          schema: { type: "string", enum: ["long", "short"] },
+        },
+        {
+          name: "status",
+          in: "query",
+          schema: {
+            type: "string",
+            enum: [
+              "draft",
+              "scheduled",
+              "active",
+              "completed",
+              "expired",
+              "canceled",
+            ],
+          },
+        },
+        {
+          name: "publishType",
+          in: "query",
+          schema: { type: "string", enum: ["instant", "scheduled"] },
+        },
         { name: "isPremium", in: "query", schema: { type: "boolean" } },
-        { name: "authorId", in: "query", schema: { type: "string" }, description: "Filter by Master Trader ID" },
+        {
+          name: "authorId",
+          in: "query",
+          schema: { type: "string" },
+          description: "Filter by Master Trader ID",
+        },
       ],
       responses: {
         200: {
@@ -24,14 +68,20 @@ export const signalSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Signals retrieved successfully" },
+                  message: {
+                    type: "string",
+                    example: "Signals retrieved successfully",
+                  },
                   data: {
                     type: "array",
                     items: {
                       type: "object",
                       properties: {
                         _id: { type: "string" },
-                        title: { type: "string", example: "EUR/USD Bullish Breakout" },
+                        title: {
+                          type: "string",
+                          example: "EUR/USD Bullish Breakout",
+                        },
                         symbol: { type: "string", example: "EURUSD" },
                         assetType: { type: "string", example: "forex" },
                         signalType: { type: "string", example: "long" },
@@ -42,7 +92,11 @@ export const signalSwaggerDocs = {
                         takeProfit2: { type: "number", example: 1.093 },
                         takeProfit3: { type: "number", example: 1.097 },
                         status: { type: "string", example: "active" },
-                        videoUrl: { type: "string", example: "https://bucket.s3.region.amazonaws.com/uploads/video.mp4" },
+                        videoUrl: {
+                          type: "string",
+                          example:
+                            "https://bucket.s3.region.amazonaws.com/uploads/video.mp4",
+                        },
                         isFeatured: { type: "boolean", example: true },
                         viewCount: { type: "integer", example: 342 },
                         likeCount: { type: "integer", example: 28 },
@@ -82,7 +136,8 @@ export const signalSwaggerDocs = {
     post: {
       tags: ["Signals"],
       summary: "Create a new signal",
-      description: "Create a trading signal. Requires MASTER role and approved Master profile.",
+      description:
+        "Create a trading signal. Requires MASTER role and approved Master profile.",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
@@ -90,25 +145,94 @@ export const signalSwaggerDocs = {
           "application/json": {
             schema: {
               type: "object",
-              required: ["title", "assetType", "symbol", "signalType", "timeframe", "entryPrice"],
+              required: [
+                "title",
+                "assetType",
+                "symbol",
+                "signalType",
+                "timeframe",
+                "entryPrice",
+              ],
               properties: {
-                title: { type: "string", minLength: 3, maxLength: 255, example: "EUR/USD Bullish Breakout" },
-                description: { type: "string", maxLength: 5000, example: "Strong bullish momentum detected..." },
-                assetType: { type: "string", enum: ["forex", "crypto", "stocks", "indices", "commodities"], example: "forex" },
+                title: {
+                  type: "string",
+                  minLength: 3,
+                  maxLength: 255,
+                  example: "EUR/USD Bullish Breakout",
+                },
+                description: {
+                  type: "string",
+                  maxLength: 5000,
+                  example: "Strong bullish momentum detected...",
+                },
+                assetType: {
+                  type: "string",
+                  enum: ["forex", "crypto", "stocks", "indices", "commodities"],
+                  example: "forex",
+                },
                 symbol: { type: "string", maxLength: 20, example: "EURUSD" },
-                signalType: { type: "string", enum: ["long", "short"], example: "long" },
-                timeframe: { type: "string", enum: ["m1", "m5", "m15", "m30", "h1", "h4", "d1", "w1", "mn1"], example: "h4" },
+                signalType: {
+                  type: "string",
+                  enum: ["long", "short"],
+                  example: "long",
+                },
+                timeframe: {
+                  type: "string",
+                  enum: [
+                    "m1",
+                    "m5",
+                    "m15",
+                    "m30",
+                    "h1",
+                    "h4",
+                    "d1",
+                    "w1",
+                    "mn1",
+                  ],
+                  example: "h4",
+                },
                 entryPrice: { type: "number", positive: true, example: 1.085 },
-                entryNotes: { type: "string", maxLength: 1000, example: "Entry on H4 candle close above resistance" },
+                entryNotes: {
+                  type: "string",
+                  maxLength: 1000,
+                  example: "Entry on H4 candle close above resistance",
+                },
                 stopLoss: { type: "number", nullable: true, example: 1.082 },
                 takeProfit1: { type: "number", nullable: true, example: 1.09 },
                 takeProfit2: { type: "number", nullable: true, example: 1.093 },
                 takeProfit3: { type: "number", nullable: true, example: 1.097 },
-                tags: { type: "array", items: { type: "string" }, maxItems: 10, example: ["breakout", "eurusd"] },
-                externalChartUrl: { type: "string", format: "uri", example: "https://www.tradingview.com/chart/..." },
-                videoUrl: { type: "string", format: "uri", example: "https://bucket.s3.region.amazonaws.com/uploads/video.mp4" },
-                publishType: { type: "string", enum: ["instant", "scheduled"], default: "instant", example: "scheduled", description: "Publish mode: 'instant' (default) publishes immediately, 'scheduled' publishes at scheduledAt time" },
-                scheduledAt: { type: "string", format: "date-time", example: "2026-04-08T10:00:00.000Z", description: "Required when publishType is 'scheduled'. Must be a future ISO 8601 datetime. Signal will auto-publish at this time." },
+                tags: {
+                  type: "array",
+                  items: { type: "string" },
+                  maxItems: 10,
+                  example: ["breakout", "eurusd"],
+                },
+                externalChartUrl: {
+                  type: "string",
+                  format: "uri",
+                  example: "https://www.tradingview.com/chart/...",
+                },
+                videoUrl: {
+                  type: "string",
+                  format: "uri",
+                  example:
+                    "https://bucket.s3.region.amazonaws.com/uploads/video.mp4",
+                },
+                publishType: {
+                  type: "string",
+                  enum: ["instant", "scheduled"],
+                  default: "instant",
+                  example: "scheduled",
+                  description:
+                    "Publish mode: 'instant' (default) publishes immediately, 'scheduled' publishes at scheduledAt time",
+                },
+                scheduledAt: {
+                  type: "string",
+                  format: "date-time",
+                  example: "2026-04-08T10:00:00.000Z",
+                  description:
+                    "Required when publishType is 'scheduled'. Must be a future ISO 8601 datetime. Signal will auto-publish at this time.",
+                },
               },
             },
           },
@@ -128,7 +252,13 @@ export const signalSwaggerDocs = {
       summary: "Get single signal",
       description: "Get details of a specific signal by ID.",
       parameters: [
-        { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Signal ID" },
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Signal ID",
+        },
       ],
       responses: {
         200: { description: "Signal retrieved successfully" },
@@ -139,7 +269,8 @@ export const signalSwaggerDocs = {
     patch: {
       tags: ["Signals"],
       summary: "Update or close a signal",
-      description: "Update your own signal. To close a signal, set status to hit_target/stopped_out (or legacy won/lost), or status completed with outcome/resultPnl. Closing syncs masterOutcome to copied trades and notifies copiers.",
+      description:
+        "Update your own signal. To close a signal, set status to hit_target/stopped_out (or legacy won/lost), or status completed with outcome/resultPnl. Closing syncs masterOutcome to copied trades and notifies copiers.",
       security: [{ bearerAuth: [] }],
       parameters: [
         { name: "id", in: "path", required: true, schema: { type: "string" } },
@@ -159,7 +290,13 @@ export const signalSwaggerDocs = {
                 videoUrl: { type: "string", format: "uri" },
                 status: {
                   type: "string",
-                  enum: ["completed", "won", "lost", "hit_target", "stopped_out"],
+                  enum: [
+                    "completed",
+                    "won",
+                    "lost",
+                    "hit_target",
+                    "stopped_out",
+                  ],
                   example: "hit_target",
                   description:
                     "Close aliases: hit_target/stopped_out (preferred), won/lost (legacy), or completed with outcome/resultPnl.",
@@ -168,7 +305,8 @@ export const signalSwaggerDocs = {
                   type: "string",
                   enum: ["hit_target", "stopped_out", "cancelled"],
                   example: "hit_target",
-                  description: "Final signal result. Preferred over won/lost status aliases.",
+                  description:
+                    "Final signal result. Preferred over won/lost status aliases.",
                 },
                 resultPnl: {
                   type: "number",
@@ -184,7 +322,9 @@ export const signalSwaggerDocs = {
       },
       responses: {
         200: { description: "Signal updated or closed successfully" },
-        400: { description: "Invalid input or cannot update non-active signal" },
+        400: {
+          description: "Invalid input or cannot update non-active signal",
+        },
         403: { description: "You can only update your own signals" },
         404: { description: "Signal not found" },
       },
@@ -213,8 +353,19 @@ export const signalSwaggerDocs = {
       security: [{ bearerAuth: [] }],
       parameters: [
         { name: "page", in: "query", schema: { type: "integer", default: 1 } },
-        { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
-        { name: "status", in: "query", schema: { type: "string", enum: ["active", "completed", "expired", "canceled"] } },
+        {
+          name: "limit",
+          in: "query",
+          schema: { type: "integer", default: 20 },
+        },
+        {
+          name: "status",
+          in: "query",
+          schema: {
+            type: "string",
+            enum: ["active", "completed", "expired", "canceled"],
+          },
+        },
       ],
       responses: {
         200: { description: "My signals retrieved successfully" },
@@ -227,7 +378,8 @@ export const signalSwaggerDocs = {
     patch: {
       tags: ["Signals"],
       summary: "Toggle signal featured status (Admin)",
-      description: "Admin only. Feature or un-feature a signal for homepage highlighting.",
+      description:
+        "Admin only. Feature or un-feature a signal for homepage highlighting.",
       security: [{ bearerAuth: [] }],
       parameters: [
         { name: "id", in: "path", required: true, schema: { type: "string" } },
@@ -382,7 +534,9 @@ export const signalSwaggerDocs = {
       tags: ["Signals", "AI Workflow"],
       summary: "Confirm and publish signal",
       security: [{ bearerAuth: [] }],
-      parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "string" } },
+      ],
       responses: { 200: { description: "Signal published" } },
     },
   },
@@ -393,7 +547,9 @@ export const signalSwaggerDocs = {
       description:
         "Master rejects their own signal before publish (draft / ai_failed / mt_pending). Body optional. Cannot reject active or already-rejected signals.",
       security: [{ bearerAuth: [] }],
-      parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "string" } },
+      ],
       requestBody: {
         required: false,
         content: {
@@ -417,7 +573,9 @@ export const signalSwaggerDocs = {
       description:
         "Re-runs Groq validation. Allowed when workflowStatus is draft, ai_pending, ai_failed, or mt_pending (e.g. after editing levels).",
       security: [{ bearerAuth: [] }],
-      parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "string" } },
+      ],
       responses: { 200: { description: "AI validation rerun" } },
     },
   },
@@ -426,7 +584,9 @@ export const signalSwaggerDocs = {
       tags: ["Signals", "AI Workflow"],
       summary: "Get AI setup assistance for draft signal",
       security: [{ bearerAuth: [] }],
-      parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "string" } },
+      ],
       responses: { 200: { description: "AI assist result" } },
     },
   },

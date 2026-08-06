@@ -3,7 +3,10 @@ import { auth_controllers } from "./auth.controller";
 import RequestValidator from "../../middlewares/request_validator";
 import { authValidations } from "./auth.validation";
 import auth from "../../middlewares/auth";
-import { authLimiter, passwordResetLimiter } from "../../middlewares/rate_limiter";
+import {
+  authLimiter,
+  passwordResetLimiter,
+} from "../../middlewares/rate_limiter";
 
 const authRoute = Router();
 
@@ -11,7 +14,7 @@ const authRoute = Router();
 authRoute.post(
   "/register",
   authLimiter,
-  
+
   RequestValidator(authValidations.register_validation),
   auth_controllers.register_user,
 );

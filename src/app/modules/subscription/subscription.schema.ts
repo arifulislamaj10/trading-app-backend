@@ -1,11 +1,11 @@
-import { model, Schema } from 'mongoose';
+import { model, Schema } from "mongoose";
 
 export interface ISubscription {
   accountId: Schema.Types.ObjectId;
   stripeCustomerId: string;
   stripeSubscriptionId: string;
   planId: string;
-  status: 'active' | 'canceled' | 'past_due' | 'trialing' | 'paused';
+  status: "active" | "canceled" | "past_due" | "trialing" | "paused";
   currentPeriodStart: Date;
   currentPeriodEnd: Date;
   cancelAtPeriodEnd: boolean;
@@ -23,14 +23,14 @@ export interface ISubscription {
 
 const subscriptionSchema = new Schema<ISubscription>(
   {
-    accountId: { type: Schema.Types.ObjectId, ref: 'account', required: true },
+    accountId: { type: Schema.Types.ObjectId, ref: "account", required: true },
     stripeCustomerId: { type: String, required: true },
     stripeSubscriptionId: { type: String, required: true }, // Indexed via schema.index() below
     planId: { type: String, required: true }, // Indexed via schema.index() below
     status: {
       type: String,
-      enum: ['active', 'canceled', 'past_due', 'trialing', 'paused'],
-      default: 'active',
+      enum: ["active", "canceled", "past_due", "trialing", "paused"],
+      default: "active",
     },
     currentPeriodStart: { type: Date, required: true },
     currentPeriodEnd: { type: Date, required: true },
@@ -54,7 +54,7 @@ const subscriptionSchema = new Schema<ISubscription>(
   {
     versionKey: false,
     timestamps: true,
-  }
+  },
 );
 
 // Indexes for optimized queries (defined here to avoid duplicate index warnings)
@@ -64,4 +64,7 @@ subscriptionSchema.index({ stripeSubscriptionId: 1 }, { unique: true }); // Uniq
 subscriptionSchema.index({ planId: 1 }); // Plan filtering
 subscriptionSchema.index({ currentPeriodEnd: 1 }); // Expiry checks
 
-export const Subscription_Model = model<ISubscription>('subscription', subscriptionSchema);
+export const Subscription_Model = model<ISubscription>(
+  "subscription",
+  subscriptionSchema,
+);

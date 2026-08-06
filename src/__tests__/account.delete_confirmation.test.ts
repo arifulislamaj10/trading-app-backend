@@ -1,40 +1,50 @@
-import { user_validations } from '../app/modules/user/user.validation';
-import { master_validations } from '../app/modules/master/master.validation';
+import { user_validations } from "../app/modules/user/user.validation";
+import { master_validations } from "../app/modules/master/master.validation";
 
-describe('BUG-022 safe account deletion confirmation', () => {
-  describe('user_validations.delete_account_confirmation', () => {
-    it('accepts confirmation DELETE', async () => {
+describe("BUG-022 safe account deletion confirmation", () => {
+  describe("user_validations.delete_account_confirmation", () => {
+    it("accepts confirmation DELETE", async () => {
       await expect(
-        user_validations.delete_account_confirmation.parseAsync({ confirmation: 'DELETE' })
-      ).resolves.toEqual({ confirmation: 'DELETE' });
+        user_validations.delete_account_confirmation.parseAsync({
+          confirmation: "DELETE",
+        }),
+      ).resolves.toEqual({ confirmation: "DELETE" });
     });
 
-    it('rejects missing confirmation', async () => {
+    it("rejects missing confirmation", async () => {
       await expect(
-        user_validations.delete_account_confirmation.parseAsync({})
+        user_validations.delete_account_confirmation.parseAsync({}),
       ).rejects.toThrow();
     });
 
-    it('rejects incorrect confirmation strings', async () => {
+    it("rejects incorrect confirmation strings", async () => {
       await expect(
-        user_validations.delete_account_confirmation.parseAsync({ confirmation: 'delete' })
+        user_validations.delete_account_confirmation.parseAsync({
+          confirmation: "delete",
+        }),
       ).rejects.toThrow();
       await expect(
-        user_validations.delete_account_confirmation.parseAsync({ confirmation: 'YES' })
+        user_validations.delete_account_confirmation.parseAsync({
+          confirmation: "YES",
+        }),
       ).rejects.toThrow();
     });
   });
 
-  describe('master_validations.delete_account_confirmation', () => {
-    it('accepts confirmation DELETE', async () => {
+  describe("master_validations.delete_account_confirmation", () => {
+    it("accepts confirmation DELETE", async () => {
       await expect(
-        master_validations.delete_account_confirmation.parseAsync({ confirmation: 'DELETE' })
-      ).resolves.toEqual({ confirmation: 'DELETE' });
+        master_validations.delete_account_confirmation.parseAsync({
+          confirmation: "DELETE",
+        }),
+      ).resolves.toEqual({ confirmation: "DELETE" });
     });
 
-    it('rejects bypass attempts without DELETE', async () => {
+    it("rejects bypass attempts without DELETE", async () => {
       await expect(
-        master_validations.delete_account_confirmation.parseAsync({ confirmation: 'confirm' })
+        master_validations.delete_account_confirmation.parseAsync({
+          confirmation: "confirm",
+        }),
       ).rejects.toThrow();
     });
   });

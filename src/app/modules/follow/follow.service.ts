@@ -1,32 +1,35 @@
-import { AppError } from '../../utils/app_error';
-import httpStatus from 'http-status';
-import { Follow_Model } from './follow.schema';
-import { Account_Model } from '../auth/auth.schema';
-import { Master_Model } from '../master/master.schema';
-import { Signal_Model } from '../signal/signal.schema';
-import { Types } from 'mongoose';
+import { AppError } from "../../utils/app_error";
+import httpStatus from "http-status";
+import { Follow_Model } from "./follow.schema";
+import { Account_Model } from "../auth/auth.schema";
+import { Master_Model } from "../master/master.schema";
+import { Signal_Model } from "../signal/signal.schema";
+import { Types } from "mongoose";
 
 /**
  * Follow a master
  */
 const follow_master = async (followerId: string, masterId: string) => {
   if (!Types.ObjectId.isValid(masterId)) {
-    throw new AppError('Invalid master ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid master ID", httpStatus.BAD_REQUEST);
   }
 
   // Cannot follow yourself
   if (followerId === masterId) {
-    throw new AppError('You cannot follow yourself', httpStatus.BAD_REQUEST);
+    throw new AppError("You cannot follow yourself", httpStatus.BAD_REQUEST);
   }
 
   // Verify the master exists and has MASTER role
   const masterAccount = await Account_Model.findById(masterId);
   if (!masterAccount) {
-    throw new AppError('Master not found', httpStatus.NOT_FOUND);
+    throw new AppError("Master not found", httpStatus.NOT_FOUND);
   }
 
-  if (masterAccount.role !== 'MASTER') {
-    throw new AppError('This user is not a Master Trader', httpStatus.BAD_REQUEST);
+  if (masterAccount.role !== "MASTER") {
+    throw new AppError(
+      "This user is not a Master Trader",
+      httpStatus.BAD_REQUEST,
+    );
   }
 
   // Check if already following
@@ -36,7 +39,10 @@ const follow_master = async (followerId: string, masterId: string) => {
   });
 
   if (existing) {
-    throw new AppError('You are already following this master', httpStatus.CONFLICT);
+    throw new AppError(
+      "You are already following this master",
+      httpStatus.CONFLICT,
+    );
   }
 
   // Create follow relationship
@@ -49,10 +55,10 @@ const follow_master = async (followerId: string, masterId: string) => {
   // Increment master's follower count
   await Master_Model.findOneAndUpdate(
     { accountId: new Types.ObjectId(masterId) },
-    { $inc: { followerCount: 1 } }
+    { $inc: { followerCount: 1 } },
   );
 
-  return { message: 'Successfully following master' };
+  return { message: "Successfully following master" };
 };
 
 /**
@@ -60,7 +66,7 @@ const follow_master = async (followerId: string, masterId: string) => {
  */
 const unfollow_master = async (followerId: string, masterId: string) => {
   if (!Types.ObjectId.isValid(masterId)) {
-    throw new AppError('Invalid master ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid master ID", httpStatus.BAD_REQUEST);
   }
 
   const deleted = await Follow_Model.findOneAndDelete({
@@ -69,16 +75,19 @@ const unfollow_master = async (followerId: string, masterId: string) => {
   });
 
   if (!deleted) {
-    throw new AppError('You are not following this master', httpStatus.NOT_FOUND);
+    throw new AppError(
+      "You are not following this master",
+      httpStatus.NOT_FOUND,
+    );
   }
 
   // Decrement master's follower count
   await Master_Model.findOneAndUpdate(
     { accountId: new Types.ObjectId(masterId) },
-    { $inc: { followerCount: -1 } }
+    { $inc: { followerCount: -1 } },
   );
 
-  return { message: 'Successfully unfollowed master' };
+  return { message: "Successfully unfollowed master" };
 };
 
 /**
@@ -86,7 +95,7 @@ const unfollow_master = async (followerId: string, masterId: string) => {
  */
 const toggle_follow = async (followerId: string, masterId: string) => {
   if (!Types.ObjectId.isValid(masterId)) {
-    throw new AppError('Invalid master ID', httpStatus.BAD_REQUEST);
+    throw new AppError("Invalid master ID", httpStatus.BAD_REQUEST);
   }
 
   const existing = await Follow_Model.findOne({
@@ -96,10 +105,10 @@ const toggle_follow = async (followerId: string, masterId: string) => {
 
   if (existing) {
     await unfollow_master(followerId, masterId);
-    return { action: 'unfollowed', message: 'Unfollowed master' };
+    return { action: "unfollowed", message: "Unfollowed master" };
   } else {
     await follow_master(followerId, masterId);
-    return { action: 'followed', message: 'Followed master' };
+    return { action: "followed", message: "Followed master" };
   }
 };
 
@@ -109,7 +118,7 @@ const toggle_follow = async (followerId: string, masterId: string) => {
 const get_following = async (
   followerId: string,
   page: number = 1,
-  limit: number = 20
+  limit: number = 20,
 ) => {
   const skip = (page - 1) * limit;
 
@@ -124,12 +133,12 @@ const get_following = async (
     followerId: new Types.ObjectId(followerId),
   });
 
-  const masterAccountIds = follows.map(f => f.masterId);
+  const masterAccountIds = follows.map((f) => f.masterId);
 
   // 2. Get master profiles for these account IDs
   const masters = await Master_Model.find({
-    accountId: { $in: masterAccountIds }
-  }).populate('accountId', 'name email userProfileUrl');
+    accountId: { $in: masterAccountIds },
+  }).populate("accountId", "name email userProfileUrl");
 
   // 3. Enrich with performance data (matching top traders structure)
   const enrichedMasters = await Promise.all(
@@ -140,15 +149,15 @@ const get_following = async (
 
       const recentSignalsCount = await Signal_Model.countDocuments({
         authorId: master.accountId,
-        status: 'completed',
+        status: "completed",
         closedAt: { $gte: thirtyDaysAgo },
       });
 
       return {
         _id: master._id,
         accountId: master.accountId,
-        name: (master.accountId as any)?.name || '',
-        userProfileUrl: (master.accountId as any)?.userProfileUrl || '',
+        name: (master.accountId as any)?.name || "",
+        userProfileUrl: (master.accountId as any)?.userProfileUrl || "",
         bio: master.bio,
         specialties: master.specialties,
         winRate: master.winRate,
@@ -161,7 +170,7 @@ const get_following = async (
         isFollow: true, // They are definitely following since we fetched from Follow_Model
         recentSignalsCount,
       };
-    })
+    }),
   );
 
   return {
@@ -181,14 +190,14 @@ const get_following = async (
 const get_followers = async (
   masterId: string,
   page: number = 1,
-  limit: number = 20
+  limit: number = 20,
 ) => {
   const skip = (page - 1) * limit;
 
   const follows = await Follow_Model.find({
     masterId: new Types.ObjectId(masterId),
   })
-    .populate('followerId', 'name email userProfileUrl')
+    .populate("followerId", "name email userProfileUrl")
     .skip(skip)
     .limit(limit);
 

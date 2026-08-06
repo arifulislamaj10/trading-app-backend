@@ -7,7 +7,7 @@ const router = Router();
 router.get(
   "/history",
   auth("USER", "ADMIN", "MASTER"),
-  wallet_transaction_controllers.get_my_transactions
+  wallet_transaction_controllers.get_my_transactions,
 );
 
 export const wallet_transaction_routes = router;

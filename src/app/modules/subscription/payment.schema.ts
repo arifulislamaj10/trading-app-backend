@@ -1,6 +1,4 @@
-import { model, Schema } from 'mongoose';
-
-
+import { model, Schema } from "mongoose";
 
 export interface IPayment {
   accountId: Schema.Types.ObjectId;
@@ -9,7 +7,7 @@ export interface IPayment {
   stripeInvoiceId: string;
   amount: number;
   currency: string;
-  status: 'succeeded' | 'failed' | 'pending' | 'refunded';
+  status: "succeeded" | "failed" | "pending" | "refunded";
   paymentMethod: string;
   description: string;
   invoiceUrl: string;
@@ -20,18 +18,22 @@ export interface IPayment {
 
 const paymentSchema = new Schema<IPayment>(
   {
-    accountId: { type: Schema.Types.ObjectId, ref: 'account', required: true },
-    subscriptionId: { type: Schema.Types.ObjectId, ref: 'subscription', required: true },
+    accountId: { type: Schema.Types.ObjectId, ref: "account", required: true },
+    subscriptionId: {
+      type: Schema.Types.ObjectId,
+      ref: "subscription",
+      required: true,
+    },
     stripePaymentIntentId: { type: String, required: true }, // Indexed via schema.index() below
     stripeInvoiceId: { type: String },
     amount: { type: Number, required: true }, // In cents
-    currency: { type: String, default: 'usd' },
+    currency: { type: String, default: "usd" },
     status: {
       type: String,
-      enum: ['succeeded', 'failed', 'pending', 'refunded'],
-      default: 'pending',
+      enum: ["succeeded", "failed", "pending", "refunded"],
+      default: "pending",
     },
-    paymentMethod: { type: String, default: 'card' },
+    paymentMethod: { type: String, default: "card" },
     description: { type: String, required: true },
     invoiceUrl: { type: String },
     refundedAt: { type: Date, default: null },
@@ -41,7 +43,7 @@ const paymentSchema = new Schema<IPayment>(
   {
     versionKey: false,
     timestamps: true,
-  }
+  },
 );
 
 // Indexes for optimized queries (defined here to avoid duplicate index warnings)
@@ -49,4 +51,4 @@ paymentSchema.index({ accountId: 1, status: 1 }); // Account payment history
 paymentSchema.index({ stripePaymentIntentId: 1 }, { unique: true }); // Unique constraint
 paymentSchema.index({ createdAt: -1 }); // For history queries
 
-export const Payment_Model = model<IPayment>('payment', paymentSchema);
+export const Payment_Model = model<IPayment>("payment", paymentSchema);

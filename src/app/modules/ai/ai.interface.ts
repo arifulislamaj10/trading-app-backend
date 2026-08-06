@@ -1,4 +1,4 @@
-export type AiValidationStatus = 'pass' | 'fail' | 'review';
+export type AiValidationStatus = "pass" | "fail" | "review";
 
 export interface SignalValidationResult {
   status: AiValidationStatus;

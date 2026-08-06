@@ -1,8 +1,8 @@
 import { model, Schema } from "mongoose";
 import { TAccount } from "./auth.interface";
 
-
-const authSchema = new Schema<TAccount>({
+const authSchema = new Schema<TAccount>(
+  {
     name: { type: String, required: true },
     email: { type: String, required: true },
     password: { type: String, required: true, select: false },
@@ -43,12 +43,14 @@ const authSchema = new Schema<TAccount>({
 
     trainingCompletedAt: { type: Date, default: null },
     tradingUnlocked: { type: Boolean, default: false },
-    timezone: { type: String, default: 'UTC' },
+    timezone: { type: String, default: "UTC" },
     timezoneManuallySet: { type: Boolean, default: false },
-}, {
+  },
+  {
     versionKey: false,
-    timestamps: true
-});
+    timestamps: true,
+  },
+);
 
 // Define all indexes explicitly (best practice: avoid inline index definitions)
 // Unique index on email

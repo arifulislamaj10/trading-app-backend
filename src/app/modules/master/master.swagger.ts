@@ -3,12 +3,27 @@ export const masterSwaggerDocs = {
     get: {
       tags: ["Masters"],
       summary: "List all masters (public)",
-      description: "Get paginated list of Master Traders. Filterable by featured status.",
+      description:
+        "Get paginated list of Master Traders. Filterable by featured status.",
       parameters: [
         { name: "page", in: "query", schema: { type: "integer", default: 1 } },
-        { name: "limit", in: "query", schema: { type: "integer", default: 10 } },
-        { name: "isFeatured", in: "query", schema: { type: "boolean" }, description: "Filter by featured status" },
-        { name: "search", in: "query", schema: { type: "string" }, description: "Search by master name" },
+        {
+          name: "limit",
+          in: "query",
+          schema: { type: "integer", default: 10 },
+        },
+        {
+          name: "isFeatured",
+          in: "query",
+          schema: { type: "boolean" },
+          description: "Filter by featured status",
+        },
+        {
+          name: "search",
+          in: "query",
+          schema: { type: "string" },
+          description: "Search by master name",
+        },
       ],
       responses: {
         200: {
@@ -19,7 +34,10 @@ export const masterSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Masters retrieved successfully" },
+                  message: {
+                    type: "string",
+                    example: "Masters retrieved successfully",
+                  },
                   data: {
                     type: "array",
                     items: {
@@ -34,8 +52,15 @@ export const masterSwaggerDocs = {
                             userProfileUrl: { type: "string" },
                           },
                         },
-                        bio: { type: "string", example: "10+ years in forex trading..." },
-                        specialties: { type: "array", items: { type: "string" }, example: ["forex", "scalping"] },
+                        bio: {
+                          type: "string",
+                          example: "10+ years in forex trading...",
+                        },
+                        specialties: {
+                          type: "array",
+                          items: { type: "string" },
+                          example: ["forex", "scalping"],
+                        },
                         yearsOfExperience: { type: "integer", example: 10 },
                         totalSignals: { type: "integer", example: 156 },
                         winRate: { type: "number", example: 72.5 },
@@ -72,7 +97,13 @@ export const masterSwaggerDocs = {
       summary: "Get master by ID",
       description: "Get detailed information about a specific Master Trader.",
       parameters: [
-        { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Master profile ID" },
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Master profile ID",
+        },
       ],
       responses: {
         200: { description: "Master details retrieved" },
@@ -86,7 +117,8 @@ export const masterSwaggerDocs = {
     patch: {
       tags: ["Masters"],
       summary: "Create or update master profile",
-      description: "Create or update your Master Trader profile. Requires MASTER role.",
+      description:
+        "Create or update your Master Trader profile. Requires MASTER role.",
       security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
@@ -95,9 +127,25 @@ export const masterSwaggerDocs = {
             schema: {
               type: "object",
               properties: {
-                bio: { type: "string", minLength: 10, maxLength: 2000, example: "Professional forex trader with 10+ years of experience in EUR/USD and GBP/USD pairs. Specializing in swing trading and price action strategies." },
-                specialties: { type: "array", items: { type: "string" }, maxItems: 10, example: ["forex", "swing-trading", "price-action"] },
-                yearsOfExperience: { type: "integer", minimum: 0, maximum: 50, example: 10 },
+                bio: {
+                  type: "string",
+                  minLength: 10,
+                  maxLength: 2000,
+                  example:
+                    "Professional forex trader with 10+ years of experience in EUR/USD and GBP/USD pairs. Specializing in swing trading and price action strategies.",
+                },
+                specialties: {
+                  type: "array",
+                  items: { type: "string" },
+                  maxItems: 10,
+                  example: ["forex", "swing-trading", "price-action"],
+                },
+                yearsOfExperience: {
+                  type: "integer",
+                  minimum: 0,
+                  maximum: 50,
+                  example: 10,
+                },
               },
             },
           },
@@ -106,7 +154,9 @@ export const masterSwaggerDocs = {
       responses: {
         200: { description: "Master profile saved successfully" },
         400: { description: "Validation error" },
-        403: { description: "Only MASTER role users can create master profiles" },
+        403: {
+          description: "Only MASTER role users can create master profiles",
+        },
       },
     },
   },
@@ -164,7 +214,8 @@ export const masterSwaggerDocs = {
     get: {
       tags: ["Masters"],
       summary: "Get my master analytics",
-      description: "Get detailed performance analytics including monthly PnL charts, asset distribution, and follower growth.",
+      description:
+        "Get detailed performance analytics including monthly PnL charts, asset distribution, and follower growth.",
       security: [{ bearerAuth: [] }],
       responses: {
         200: {
@@ -183,12 +234,24 @@ export const masterSwaggerDocs = {
                         type: "object",
                         properties: {
                           monthly: { type: "array", items: { type: "object" } },
-                          assetDistribution: { type: "array", items: { type: "object" } },
-                          topSymbols: { type: "array", items: { type: "object" } },
+                          assetDistribution: {
+                            type: "array",
+                            items: { type: "object" },
+                          },
+                          topSymbols: {
+                            type: "array",
+                            items: { type: "object" },
+                          },
                         },
                       },
-                      followerGrowth: { type: "array", items: { type: "object" } },
-                      recentSignals: { type: "array", items: { type: "object" } },
+                      followerGrowth: {
+                        type: "array",
+                        items: { type: "object" },
+                      },
+                      recentSignals: {
+                        type: "array",
+                        items: { type: "object" },
+                      },
                     },
                   },
                 },
@@ -205,7 +268,8 @@ export const masterSwaggerDocs = {
     patch: {
       tags: ["Masters (Admin)"],
       summary: "Toggle master featured status",
-      description: "Admin only. Feature or un-feature a Master Trader for leaderboard highlighting.",
+      description:
+        "Admin only. Feature or un-feature a Master Trader for leaderboard highlighting.",
       security: [{ bearerAuth: [] }],
       parameters: [
         { name: "id", in: "path", required: true, schema: { type: "string" } },

@@ -14,13 +14,19 @@ const tokenBlacklistSchema = new Schema<ITokenBlacklist>(
   {
     versionKey: false,
     timestamps: true,
-  }
+  },
 );
 
 // Unique index on token
 tokenBlacklistSchema.index({ token: 1 }, { unique: true });
 
 // TTL index - automatically delete expired tokens (expireAfterSeconds: 0 means expire at exact time)
-tokenBlacklistSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0, background: true });
+tokenBlacklistSchema.index(
+  { expiresAt: 1 },
+  { expireAfterSeconds: 0, background: true },
+);
 
-export const TokenBlacklist_Model = model("token_blacklist", tokenBlacklistSchema);
+export const TokenBlacklist_Model = model(
+  "token_blacklist",
+  tokenBlacklistSchema,
+);

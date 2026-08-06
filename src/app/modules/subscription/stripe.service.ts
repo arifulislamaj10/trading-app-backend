@@ -1,9 +1,9 @@
-import Stripe from 'stripe';
-import { configs } from '../../configs';
+import Stripe from "stripe";
+import { configs } from "../../configs";
 
 // @ts-ignore - Stripe types issue with v22
 const stripe = new Stripe(configs.stripe.secretKey!, {
-  apiVersion: '2024-12-18.acacia',
+  apiVersion: "2024-12-18.acacia",
 });
 
 export const stripeService = {
@@ -22,7 +22,11 @@ export const stripeService = {
   },
 
   // Create Stripe Product
-  async createProduct(name: string, description: string, metadata?: Record<string, string>) {
+  async createProduct(
+    name: string,
+    description: string,
+    metadata?: Record<string, string>,
+  ) {
     return stripe.products.create({
       name,
       description,
@@ -35,13 +39,13 @@ export const stripeService = {
     productId: string,
     unitAmount: number,
     currency: string,
-    interval: 'month' | 'year' | 'one_time' | 'week'
+    interval: "month" | "year" | "one_time" | "week",
   ) {
     return stripe.prices.create({
       product: productId,
       unit_amount: unitAmount,
       currency,
-      recurring: interval !== 'one_time' ? { interval } : undefined,
+      recurring: interval !== "one_time" ? { interval } : undefined,
     });
   },
 
@@ -52,7 +56,7 @@ export const stripeService = {
     description: string;
     price: number;
     currency: string;
-    interval: 'month' | 'year';
+    interval: "month" | "year";
   }) {
     try {
       const unitAmount = planData.price * 100;
@@ -63,19 +67,24 @@ export const stripeService = {
       const products = await stripe.products.list({
         active: true,
         limit: 100,
-        expand: ['data.default_price'],
+        expand: ["data.default_price"],
       });
 
       const existingProduct = products.data.find(
-        (p: any) => p.metadata.planId === planData.planId
+        (p: any) => p.metadata.planId === planData.planId,
       );
 
       if (existingProduct) {
         productId = existingProduct.id;
-        console.log(`ℹ️  Found existing Stripe product for ${planData.planId}: ${productId}`);
-        
+        console.log(
+          `ℹ️  Found existing Stripe product for ${planData.planId}: ${productId}`,
+        );
+
         // Update product info if changed
-        if (existingProduct.name !== planData.name || existingProduct.description !== planData.description) {
+        if (
+          existingProduct.name !== planData.name ||
+          existingProduct.description !== planData.description
+        ) {
           await stripe.products.update(productId, {
             name: planData.name,
             description: planData.description,
@@ -89,7 +98,9 @@ export const stripeService = {
           metadata: { planId: planData.planId },
         });
         productId = product.id;
-        console.log(`🆕 Created new Stripe product for ${planData.planId}: ${productId}`);
+        console.log(
+          `🆕 Created new Stripe product for ${planData.planId}: ${productId}`,
+        );
       }
 
       // 2. Search for existing price with this amount and interval for this product
@@ -103,12 +114,14 @@ export const stripeService = {
         (p: any) =>
           p.unit_amount === unitAmount &&
           p.currency === planData.currency.toLowerCase() &&
-          p.recurring?.interval === planData.interval
+          p.recurring?.interval === planData.interval,
       );
 
       if (matchingPrice) {
         priceId = matchingPrice.id;
-        console.log(`ℹ️  Found existing Stripe price for ${planData.planId}: ${priceId}`);
+        console.log(
+          `ℹ️  Found existing Stripe price for ${planData.planId}: ${priceId}`,
+        );
       } else {
         // Create new price if not found
         const price = await stripe.prices.create({
@@ -118,7 +131,9 @@ export const stripeService = {
           recurring: { interval: planData.interval },
         });
         priceId = price.id;
-        console.log(`🆕 Created new Stripe price for ${planData.planId}: ${priceId}`);
+        console.log(
+          `🆕 Created new Stripe price for ${planData.planId}: ${priceId}`,
+        );
       }
 
       return {
@@ -126,7 +141,10 @@ export const stripeService = {
         stripePriceId: priceId,
       };
     } catch (error: any) {
-      console.error(`❌ Failed to sync plan "${planData.name}" with Stripe:`, error.message);
+      console.error(
+        `❌ Failed to sync plan "${planData.name}" with Stripe:`,
+        error.message,
+      );
       throw error;
     }
   },
@@ -137,12 +155,12 @@ export const stripeService = {
     priceId: string,
     successUrl: string,
     cancelUrl: string,
-    metadata?: Record<string, string>
+    metadata?: Record<string, string>,
   ) {
     return stripe.checkout.sessions.create({
       customer: customerId,
-      mode: 'subscription',
-      payment_method_types: ['card'],
+      mode: "subscription",
+      payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: successUrl,
       cancel_url: cancelUrl,
@@ -158,12 +176,12 @@ export const stripeService = {
     successUrl: string,
     cancelUrl: string,
     trialPeriodDays: number,
-    metadata?: Record<string, string>
+    metadata?: Record<string, string>,
   ) {
     return stripe.checkout.sessions.create({
       customer: customerId,
-      mode: 'subscription',
-      payment_method_types: ['card'],
+      mode: "subscription",
+      payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: {
         trial_period_days: trialPeriodDays,
@@ -186,7 +204,7 @@ export const stripeService = {
   // Get Subscription Details
   async getSubscription(subscriptionId: string) {
     return stripe.subscriptions.retrieve(subscriptionId, {
-      expand: ['default_payment_method'],
+      expand: ["default_payment_method"],
     });
   },
 
@@ -211,7 +229,7 @@ export const stripeService = {
 
     return stripe.subscriptions.update(subscriptionId, {
       items: [{ id: currentItemId, price: newPriceId }],
-      proration_behavior: 'create_prorations',
+      proration_behavior: "create_prorations",
     });
   },
 
@@ -221,7 +239,7 @@ export const stripeService = {
     currency: string,
     customerId: string,
     description: string,
-    metadata?: Record<string, string>
+    metadata?: Record<string, string>,
   ) {
     return stripe.paymentIntents.create({
       amount,

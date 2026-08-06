@@ -16,7 +16,8 @@ export const uploadSwaggerDocs = {
                 file: {
                   type: "string",
                   format: "binary",
-                  description: "The file to upload. Allowed types: JPG, PNG, WebP, PDF, CSV, MP4, MOV, AVI, MKV, WEBM, M4V, MPEG, 3GP, OGG. Max size: 200MB.",
+                  description:
+                    "The file to upload. Allowed types: JPG, PNG, WebP, PDF, CSV, MP4, MOV, AVI, MKV, WEBM, M4V, MPEG, 3GP, OGG. Max size: 200MB.",
                 },
               },
               required: ["file"],
@@ -35,7 +36,8 @@ export const uploadSwaggerDocs = {
                   success: { type: "boolean", example: true },
                   url: {
                     type: "string",
-                    example: "https://your-bucket.s3.your-region.amazonaws.com/uploads/abc123-def456.jpg",
+                    example:
+                      "https://your-bucket.s3.your-region.amazonaws.com/uploads/abc123-def456.jpg",
                   },
                 },
               },
@@ -64,7 +66,10 @@ export const uploadSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: false },
-                  message: { type: "string", example: "Authorization header missing or malformed" },
+                  message: {
+                    type: "string",
+                    example: "Authorization header missing or malformed",
+                  },
                 },
               },
             },
@@ -107,7 +112,8 @@ export const uploadSwaggerDocs = {
                     type: "string",
                     format: "binary",
                   },
-                  description: "Array of files to upload. Maximum 10 files. Allowed types: JPG, PNG, WebP, PDF, CSV, MP4, MOV, AVI, MKV, WEBM, M4V, MPEG, 3GP, OGG. Max size per file: 200MB.",
+                  description:
+                    "Array of files to upload. Maximum 10 files. Allowed types: JPG, PNG, WebP, PDF, CSV, MP4, MOV, AVI, MKV, WEBM, M4V, MPEG, 3GP, OGG. Max size per file: 200MB.",
                   maxItems: 10,
                 },
               },
@@ -129,7 +135,8 @@ export const uploadSwaggerDocs = {
                     type: "array",
                     items: {
                       type: "string",
-                      example: "https://your-bucket.s3.your-region.amazonaws.com/uploads/abc123-def456.jpg",
+                      example:
+                        "https://your-bucket.s3.your-region.amazonaws.com/uploads/abc123-def456.jpg",
                     },
                   },
                 },
@@ -159,7 +166,10 @@ export const uploadSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: false },
-                  message: { type: "string", example: "Authorization header missing or malformed" },
+                  message: {
+                    type: "string",
+                    example: "Authorization header missing or malformed",
+                  },
                 },
               },
             },

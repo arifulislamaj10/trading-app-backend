@@ -1,6 +1,6 @@
-import bcrypt from 'bcrypt';
+import bcrypt from "bcrypt";
 
-const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || '12');
+const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || "12");
 
 /**
  * Hash a password using bcrypt
@@ -19,7 +19,7 @@ export const hashPassword = async (password: string): Promise<string> => {
  */
 export const comparePassword = async (
   password: string,
-  hashedPassword: string
+  hashedPassword: string,
 ): Promise<boolean> => {
   return bcrypt.compare(password, hashedPassword);
 };

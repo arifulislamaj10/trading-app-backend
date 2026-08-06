@@ -1,4 +1,8 @@
-import { S3Client, PutObjectCommand, PutObjectCommandInput } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  PutObjectCommandInput,
+} from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 import path from "path";
 import { configs } from "../configs";
@@ -15,10 +19,25 @@ const PLACEHOLDER_VALUES = new Set([
 ]);
 
 const regionPatterns = new Set([
-  "us-east-1", "us-east-2", "us-west-1", "us-west-2",
-  "eu-west-1", "eu-west-2", "eu-west-3", "eu-central-1", "eu-north-1", "eu-south-1",
-  "ap-south-1", "ap-southeast-1", "ap-southeast-2", "ap-northeast-1", "ap-northeast-2",
-  "sa-east-1", "ca-central-1", "me-south-1", "af-south-1",
+  "us-east-1",
+  "us-east-2",
+  "us-west-1",
+  "us-west-2",
+  "eu-west-1",
+  "eu-west-2",
+  "eu-west-3",
+  "eu-central-1",
+  "eu-north-1",
+  "eu-south-1",
+  "ap-south-1",
+  "ap-southeast-1",
+  "ap-southeast-2",
+  "ap-northeast-1",
+  "ap-northeast-2",
+  "sa-east-1",
+  "ca-central-1",
+  "me-south-1",
+  "af-south-1",
 ]);
 
 export function getUploadStorageMode(): UploadStorageMode {
@@ -67,9 +86,13 @@ export function logUploadStorageConfig(): void {
 
   if (mode === "s3") {
     if (s3Ready) {
-      logger.info(`📦 Upload storage: AWS S3 (bucket: ${configs.aws.bucket_name})`);
+      logger.info(
+        `📦 Upload storage: AWS S3 (bucket: ${configs.aws.bucket_name})`,
+      );
     } else {
-      logger.error("📦 Upload storage: S3 required but AWS credentials are missing or invalid");
+      logger.error(
+        "📦 Upload storage: S3 required but AWS credentials are missing or invalid",
+      );
     }
     return;
   }
@@ -111,7 +134,9 @@ async function putObjectToS3(
   folder: string,
 ): Promise<string> {
   if (!isAwsConfigured() || !s3) {
-    throw new Error("AWS S3 is not configured. Set AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_BUCKET_NAME.");
+    throw new Error(
+      "AWS S3 is not configured. Set AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_BUCKET_NAME.",
+    );
   }
 
   const ext = path.extname(file.originalname);
@@ -129,8 +154,12 @@ async function putObjectToS3(
     await s3.send(new PutObjectCommand(params));
     logger.info(`File uploaded to S3: ${key} (${contentType})`);
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown S3 error";
-    logger.error(`S3 PutObject failed for bucket "${configs.aws.bucket_name}" and key "${key}": ${errorMessage}`, error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown S3 error";
+    logger.error(
+      `S3 PutObject failed for bucket "${configs.aws.bucket_name}" and key "${key}": ${errorMessage}`,
+      error,
+    );
     throw error;
   }
 
@@ -156,7 +185,8 @@ export const uploadToS3 = async (
   try {
     return await putObjectToS3(file, folder);
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown S3 error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown S3 error";
     logger.error(`S3 upload failed: ${errorMessage}`, error);
 
     if (mode === "s3") {

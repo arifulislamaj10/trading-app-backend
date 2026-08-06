@@ -33,7 +33,7 @@ const referralSchema = new Schema<TReferral>(
   {
     timestamps: true,
     versionKey: false,
-  }
+  },
 );
 
 referralSchema.index({ referrerId: 1 });

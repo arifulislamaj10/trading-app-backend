@@ -189,11 +189,13 @@ export const swaggerOptions = {
             conversionRate: {
               type: "number",
               example: 50,
-              description: "Personal conversion rate (% of referrals completed)",
+              description:
+                "Personal conversion rate (% of referrals completed)",
             },
             campaignPerformance: {
               type: "object",
-              description: "Platform-wide campaign progress plus personal monthly stats",
+              description:
+                "Platform-wide campaign progress plus personal monthly stats",
               properties: {
                 goal: { type: "integer", example: 1000 },
                 completed: { type: "integer", example: 250 },

@@ -6,7 +6,10 @@ import catch_async from "../../utils/catch_async";
 
 const get_my_transactions = catch_async(async (req: Request, res: Response) => {
   const userId = req.user?.userId;
-  const result = await wallet_transaction_services.get_my_transactions_from_db(userId as string, req.query);
+  const result = await wallet_transaction_services.get_my_transactions_from_db(
+    userId as string,
+    req.query,
+  );
 
   manageResponse(res, {
     statusCode: httpStatus.OK,

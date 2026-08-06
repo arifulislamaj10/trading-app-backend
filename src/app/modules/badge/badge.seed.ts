@@ -1,5 +1,5 @@
-import { BADGE_DEFINITIONS } from './badge.constants';
-import { Badge_Model } from './badge.schema';
+import { BADGE_DEFINITIONS } from "./badge.constants";
+import { Badge_Model } from "./badge.schema";
 
 /**
  * Idempotent seed for the badge catalog.
@@ -21,7 +21,7 @@ export const seedBadges = async () => {
           isActive: true,
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
   }
 };

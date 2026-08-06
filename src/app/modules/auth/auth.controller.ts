@@ -7,10 +7,10 @@ import httpStatus from "http-status";
 import { Request, Response } from "express";
 import { AUTH_ERRORS } from "../../constants/auth";
 
-// 
+//
 const register_user = catchAsync(async (req: Request, res: Response) => {
   const result = await auth_services.register_user_into_db(req.body);
-  
+
   manageResponse(res, {
     success: true,
     message: AUTH_ERRORS.ACCOUNT_CREATED,
@@ -29,7 +29,7 @@ const login_user = catchAsync(async (req: Request, res: Response) => {
     path: "/",
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
-  
+
   manageResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -46,7 +46,7 @@ const login_user = catchAsync(async (req: Request, res: Response) => {
 const get_my_profile = catchAsync(async (req: Request, res: Response) => {
   const { email } = req.user!;
   const result = await auth_services.get_my_profile_from_db(email);
-  
+
   manageResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -57,11 +57,11 @@ const get_my_profile = catchAsync(async (req: Request, res: Response) => {
 
 const refresh_token = catchAsync(async (req: Request, res: Response) => {
   const refreshToken = req.cookies.refreshToken || req.body?.refreshToken;
-  
+
   if (!refreshToken) {
     throw new AppError("Refresh token required", httpStatus.UNAUTHORIZED);
   }
-  
+
   const result = await auth_services.refresh_token_from_db(refreshToken);
 
   res.cookie("refreshToken", result.refreshToken, {
@@ -71,7 +71,7 @@ const refresh_token = catchAsync(async (req: Request, res: Response) => {
     path: "/",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
-  
+
   manageResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -98,7 +98,7 @@ const change_password = catchAsync(async (req: Request, res: Response) => {
 const forget_password = catchAsync(async (req: Request, res: Response) => {
   const { email } = req.body;
   const result = await auth_services.forget_password_from_db(email);
-  
+
   manageResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -109,13 +109,17 @@ const forget_password = catchAsync(async (req: Request, res: Response) => {
 
 const reset_password = catchAsync(async (req: Request, res: Response) => {
   const { email, verificationCode, newPassword, confirmPassword } = req.body;
-  
+
   if (newPassword !== confirmPassword) {
     throw new AppError(AUTH_ERRORS.PASSWORD_MISMATCH, httpStatus.BAD_REQUEST);
   }
-  
-  const result = await auth_services.reset_password_from_db(email, verificationCode, newPassword);
-  
+
+  const result = await auth_services.reset_password_from_db(
+    email,
+    verificationCode,
+    newPassword,
+  );
+
   manageResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -126,8 +130,11 @@ const reset_password = catchAsync(async (req: Request, res: Response) => {
 
 const verify_email = catchAsync(async (req: Request, res: Response) => {
   const { email, verificationCode } = req.body;
-  const result = await auth_services.verify_email_from_db(email, verificationCode);
-  
+  const result = await auth_services.verify_email_from_db(
+    email,
+    verificationCode,
+  );
+
   manageResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -153,9 +160,12 @@ const resend_verification_email = catchAsync(
 const logout_user = catchAsync(async (req: Request, res: Response) => {
   const accessToken = req.headers.authorization?.split(" ")[1];
   const refreshToken = req.cookies.refreshToken || req.body?.refreshToken;
-  
+
   if (!accessToken) {
-    throw new AppError("Access token required for logout", httpStatus.BAD_REQUEST);
+    throw new AppError(
+      "Access token required for logout",
+      httpStatus.BAD_REQUEST,
+    );
   }
 
   const result = await auth_services.logout_user_from_db(

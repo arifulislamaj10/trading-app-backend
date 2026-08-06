@@ -58,7 +58,7 @@ router.post(
       next();
     });
   },
-  uploadFile
+  uploadFile,
 );
 
 /*
@@ -78,7 +78,7 @@ router.post(
       next();
     });
   },
-  uploadFile
+  uploadFile,
 );
 
 export default router;

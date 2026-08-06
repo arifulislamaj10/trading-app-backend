@@ -1,18 +1,21 @@
-import { AppError } from '../../utils/app_error';
-import httpStatus from 'http-status';
-import { Comment_Model } from './comment.schema';
-import { Signal_Model } from './signal.schema';
-import { contribution_services } from '../contribution/contribution.service';
-import { Types } from 'mongoose';
+import { AppError } from "../../utils/app_error";
+import httpStatus from "http-status";
+import { Comment_Model } from "./comment.schema";
+import { Signal_Model } from "./signal.schema";
+import { contribution_services } from "../contribution/contribution.service";
+import { Types } from "mongoose";
 
 /**
  * Create a new comment on a signal
  */
-const create_comment = async (userId: string, data: { signalId: string; message: string }) => {
+const create_comment = async (
+  userId: string,
+  data: { signalId: string; message: string },
+) => {
   // 1. Check if signal exists
   const signal = await Signal_Model.findById(data.signalId);
   if (!signal) {
-    throw new AppError('Signal not found', httpStatus.NOT_FOUND);
+    throw new AppError("Signal not found", httpStatus.NOT_FOUND);
   }
 
   // 2. Create the comment
@@ -28,7 +31,11 @@ const create_comment = async (userId: string, data: { signalId: string; message:
   });
 
   // 4. Track contribution (engagement points)
-  contribution_services.track_contribution(userId, 'comment', comment._id.toString());
+  contribution_services.track_contribution(
+    userId,
+    "comment",
+    comment._id.toString(),
+  );
 
   return comment;
 };
@@ -36,19 +43,26 @@ const create_comment = async (userId: string, data: { signalId: string; message:
 /**
  * Get paginated comments for a specific signal
  */
-const get_comments_by_signal = async (signalId: string, page: number = 1, limit: number = 10) => {
+const get_comments_by_signal = async (
+  signalId: string,
+  page: number = 1,
+  limit: number = 10,
+) => {
   const skip = (page - 1) * limit;
 
   const comments = await Comment_Model.find({ signalId, isDeleted: false })
     .populate({
-      path: 'userId',
-      select: 'name userProfileUrl',
+      path: "userId",
+      select: "name userProfileUrl",
     })
     .sort({ createdAt: -1 }) // Latest first
     .skip(skip)
     .limit(limit);
 
-  const total = await Comment_Model.countDocuments({ signalId, isDeleted: false });
+  const total = await Comment_Model.countDocuments({
+    signalId,
+    isDeleted: false,
+  });
 
   return {
     meta: {

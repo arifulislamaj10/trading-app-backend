@@ -1,8 +1,12 @@
-import { Contribution_Model, CONTRIBUTION_POINTS, ContributionActivityType } from './contribution.schema';
-import { Account_Model } from '../auth/auth.schema';
-import { Types } from 'mongoose';
+import {
+  Contribution_Model,
+  CONTRIBUTION_POINTS,
+  ContributionActivityType,
+} from "./contribution.schema";
+import { Account_Model } from "../auth/auth.schema";
+import { Types } from "mongoose";
 
-export type TimeframeType = 'week' | 'month' | 'all';
+export type TimeframeType = "week" | "month" | "all";
 
 const MAX_PAGINATION_LIMIT = 100;
 const DEFAULT_PAGE = 1;
@@ -11,19 +15,21 @@ const DEFAULT_LIMIT = 10;
 /**
  * Get date range based on timeframe
  */
-const getDateRange = (timeframe: TimeframeType): { startDate: Date; endDate: Date } => {
+const getDateRange = (
+  timeframe: TimeframeType,
+): { startDate: Date; endDate: Date } => {
   const now = new Date();
   const endDate = new Date(now);
 
   let startDate: Date;
   switch (timeframe) {
-    case 'week':
+    case "week":
       startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       break;
-    case 'month':
+    case "month":
       startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       break;
-    case 'all':
+    case "all":
     default:
       startDate = new Date(0);
       break;
@@ -39,7 +45,7 @@ const getDateRange = (timeframe: TimeframeType): { startDate: Date; endDate: Dat
 const track_contribution = async (
   accountId: string,
   activityType: ContributionActivityType,
-  activityId?: string
+  activityId?: string,
 ): Promise<void> => {
   try {
     const points = CONTRIBUTION_POINTS[activityType];
@@ -60,9 +66,9 @@ const track_contribution = async (
  * Get top contributors ranked by total points
  */
 const get_top_contributors = async (
-  timeframe: TimeframeType = 'week',
+  timeframe: TimeframeType = "week",
   page: number = DEFAULT_PAGE,
-  limit: number = DEFAULT_LIMIT
+  limit: number = DEFAULT_LIMIT,
 ) => {
   const { startDate, endDate } = getDateRange(timeframe);
   const skip = (page - 1) * limit;
@@ -76,11 +82,11 @@ const get_top_contributors = async (
     },
     {
       $group: {
-        _id: '$accountId',
-        totalPoints: { $sum: '$points' },
+        _id: "$accountId",
+        totalPoints: { $sum: "$points" },
         activityCount: { $sum: 1 },
-        lastActivity: { $max: '$createdAt' },
-        activities: { $push: '$activityType' },
+        lastActivity: { $max: "$createdAt" },
+        activities: { $push: "$activityType" },
       },
     },
     { $sort: { totalPoints: -1 } },
@@ -88,19 +94,19 @@ const get_top_contributors = async (
     { $limit: limit },
     {
       $lookup: {
-        from: 'accounts',
-        localField: '_id',
-        foreignField: '_id',
-        as: 'account',
+        from: "accounts",
+        localField: "_id",
+        foreignField: "_id",
+        as: "account",
       },
     },
-    { $unwind: '$account' },
+    { $unwind: "$account" },
     {
       $project: {
-        accountId: '$_id',
-        name: '$account.name',
-        userProfileUrl: '$account.userProfileUrl',
-        role: '$account.role',
+        accountId: "$_id",
+        name: "$account.name",
+        userProfileUrl: "$account.userProfileUrl",
+        role: "$account.role",
         totalPoints: 1,
         activityCount: 1,
         lastActivity: 1,
@@ -117,7 +123,7 @@ const get_top_contributors = async (
     });
 
     // Find the most frequent activity type
-    let topActivity = '';
+    let topActivity = "";
     let maxCount = 0;
     for (const [activity, count] of Object.entries(activityCounts)) {
       if (count > maxCount) {
@@ -128,19 +134,19 @@ const get_top_contributors = async (
 
     // Map to badge labels
     const badgeMap: Record<string, string> = {
-      like_signal: 'Engaged',
-      view_signal: 'Engaged',
-      comment: 'Communicator',
-      share_signal: 'Top Sharer',
-      create_signal: 'Top Creator',
-      close_signal_profit: 'Top Trader',
-      bookmark_signal: 'Curator',
+      like_signal: "Engaged",
+      view_signal: "Engaged",
+      comment: "Communicator",
+      share_signal: "Top Sharer",
+      create_signal: "Top Creator",
+      close_signal_profit: "Top Trader",
+      bookmark_signal: "Curator",
     };
 
     return {
       ...item,
-      contributionType: badgeMap[topActivity] || 'Contributor',
-      badgeName: badgeMap[topActivity] || 'Contributor',
+      contributionType: badgeMap[topActivity] || "Contributor",
+      badgeName: badgeMap[topActivity] || "Contributor",
     };
   };
 
@@ -155,11 +161,11 @@ const get_top_contributors = async (
     },
     {
       $group: {
-        _id: '$accountId',
+        _id: "$accountId",
       },
     },
     {
-      $count: 'total',
+      $count: "total",
     },
   ]);
 
@@ -182,7 +188,7 @@ const get_top_contributors = async (
  */
 const get_my_contributions = async (
   accountId: string,
-  timeframe: TimeframeType = 'week'
+  timeframe: TimeframeType = "week",
 ) => {
   const { startDate, endDate } = getDateRange(timeframe);
 
@@ -195,15 +201,15 @@ const get_my_contributions = async (
     },
     {
       $group: {
-        _id: '$accountId',
-        totalPoints: { $sum: '$points' },
+        _id: "$accountId",
+        totalPoints: { $sum: "$points" },
         activityCount: { $sum: 1 },
-        lastActivity: { $max: '$createdAt' },
+        lastActivity: { $max: "$createdAt" },
         breakdown: {
           $push: {
-            activityType: '$activityType',
-            points: '$points',
-            createdAt: '$createdAt',
+            activityType: "$activityType",
+            points: "$points",
+            createdAt: "$createdAt",
           },
         },
       },
@@ -230,16 +236,15 @@ const get_my_contributions = async (
     },
     {
       $group: {
-        _id: '$accountId',
-        totalPoints: { $sum: '$points' },
+        _id: "$accountId",
+        totalPoints: { $sum: "$points" },
       },
     },
     { $sort: { totalPoints: -1 } },
   ]);
 
-  const userRank = allContributors.findIndex(
-    (c) => c._id.toString() === accountId
-  ) + 1;
+  const userRank =
+    allContributors.findIndex((c) => c._id.toString() === accountId) + 1;
 
   const result = aggregation[0];
 
@@ -262,13 +267,13 @@ const get_user_contribution_stats = async (accountId: string) => {
     {
       $group: {
         _id: null,
-        totalPoints: { $sum: '$points' },
+        totalPoints: { $sum: "$points" },
         activityCount: { $sum: 1 },
         byType: {
           $push: {
-            activityType: '$activityType',
+            activityType: "$activityType",
             count: 1,
-            points: '$points',
+            points: "$points",
           },
         },
       },

@@ -13,48 +13,60 @@ const get_config = catch_async(async (req: Request, res: Response) => {
   });
 });
 
-const update_referral_reward = catch_async(async (req: Request, res: Response) => {
-  const { amount } = req.body;
-  const adminId = (req.user as any)?.userId;
+const update_referral_reward = catch_async(
+  async (req: Request, res: Response) => {
+    const { amount } = req.body;
+    const adminId = (req.user as any)?.userId;
 
-  const result = await system_config_services.update_referral_reward(amount, adminId);
+    const result = await system_config_services.update_referral_reward(
+      amount,
+      adminId,
+    );
 
-  res.status(httpStatus.OK).json({
-    success: true,
-    message: "Referral reward amount updated successfully",
-    data: result,
-  });
-});
+    res.status(httpStatus.OK).json({
+      success: true,
+      message: "Referral reward amount updated successfully",
+      data: result,
+    });
+  },
+);
 
-const update_referral_rewards_by_tier = catch_async(async (req: Request, res: Response) => {
-  const { rewards, fallbackAmount } = req.body;
-  const adminId = (req.user as any)?.userId;
+const update_referral_rewards_by_tier = catch_async(
+  async (req: Request, res: Response) => {
+    const { rewards, fallbackAmount } = req.body;
+    const adminId = (req.user as any)?.userId;
 
-  const result = await system_config_services.update_referral_rewards_by_tier(
-    rewards,
-    adminId,
-    fallbackAmount,
-  );
+    const result = await system_config_services.update_referral_rewards_by_tier(
+      rewards,
+      adminId,
+      fallbackAmount,
+    );
 
-  res.status(httpStatus.OK).json({
-    success: true,
-    message: "Tier-based referral rewards updated successfully",
-    data: result,
-  });
-});
+    res.status(httpStatus.OK).json({
+      success: true,
+      message: "Tier-based referral rewards updated successfully",
+      data: result,
+    });
+  },
+);
 
-const update_referral_campaign_goal = catch_async(async (req: Request, res: Response) => {
-  const { goal } = req.body;
-  const adminId = (req.user as any)?.userId;
+const update_referral_campaign_goal = catch_async(
+  async (req: Request, res: Response) => {
+    const { goal } = req.body;
+    const adminId = (req.user as any)?.userId;
 
-  const result = await system_config_services.update_referral_campaign_goal(goal, adminId);
+    const result = await system_config_services.update_referral_campaign_goal(
+      goal,
+      adminId,
+    );
 
-  res.status(httpStatus.OK).json({
-    success: true,
-    message: "Referral campaign goal updated successfully",
-    data: result,
-  });
-});
+    res.status(httpStatus.OK).json({
+      success: true,
+      message: "Referral campaign goal updated successfully",
+      data: result,
+    });
+  },
+);
 
 const get_platforms = catch_async(async (req: Request, res: Response) => {
   const result = await system_config_services.get_platforms();
@@ -70,7 +82,10 @@ const update_platforms = catch_async(async (req: Request, res: Response) => {
   const { platforms } = req.body;
   const adminId = (req.user as any)?.userId;
 
-  const result = await system_config_services.update_platforms(platforms, adminId);
+  const result = await system_config_services.update_platforms(
+    platforms,
+    adminId,
+  );
 
   res.status(httpStatus.OK).json({
     success: true,

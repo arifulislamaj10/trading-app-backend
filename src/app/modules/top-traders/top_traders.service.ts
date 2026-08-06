@@ -1,12 +1,16 @@
-import { Master_Model } from '../master/master.schema';
-import { Signal_Model } from '../signal/signal.schema';
-import { Follow_Model } from '../follow/follow.schema';
-import { Types } from 'mongoose';
-import { referral_services } from '../referral/referral.service';
-import { Referral_Model } from '../referral/referral.schema';
+import { Master_Model } from "../master/master.schema";
+import { Signal_Model } from "../signal/signal.schema";
+import { Follow_Model } from "../follow/follow.schema";
+import { Types } from "mongoose";
+import { referral_services } from "../referral/referral.service";
+import { Referral_Model } from "../referral/referral.schema";
 
-export type TimeframeType = 'week' | 'month' | 'all';
-export type SortByType = 'winRate' | 'avgPnl' | 'totalSignals' | 'followerCount';
+export type TimeframeType = "week" | "month" | "all";
+export type SortByType =
+  | "winRate"
+  | "avgPnl"
+  | "totalSignals"
+  | "followerCount";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
@@ -14,19 +18,21 @@ const DEFAULT_LIMIT = 10;
 /**
  * Get date range based on timeframe
  */
-const getDateRange = (timeframe: TimeframeType): { startDate: Date; endDate: Date } => {
+const getDateRange = (
+  timeframe: TimeframeType,
+): { startDate: Date; endDate: Date } => {
   const now = new Date();
   const endDate = new Date(now);
 
   let startDate: Date;
   switch (timeframe) {
-    case 'week':
+    case "week":
       startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       break;
-    case 'month':
+    case "month":
       startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       break;
-    case 'all':
+    case "all":
     default:
       startDate = new Date(0);
       break;
@@ -40,11 +46,11 @@ const getDateRange = (timeframe: TimeframeType): { startDate: Date; endDate: Dat
  * Supports `limit` param — use limit=3 for top-3 widget, default=10 for full list
  */
 const get_top_traders = async (
-  timeframe: TimeframeType = 'all',
-  sortBy: SortByType = 'winRate',
+  timeframe: TimeframeType = "all",
+  sortBy: SortByType = "winRate",
   page: number = DEFAULT_PAGE,
   limit: number = DEFAULT_LIMIT,
-  currentUserId?: string
+  currentUserId?: string,
 ) => {
   const { startDate } = getDateRange(timeframe);
   const skip = (page - 1) * limit;
@@ -52,11 +58,11 @@ const get_top_traders = async (
   // Build sort object based on sortBy parameter
   const sortOptions: Record<string, -1 | 1> = { [sortBy]: -1 };
   // Secondary sort by followerCount for tie-breaking
-  sortOptions['followerCount'] = -1;
+  sortOptions["followerCount"] = -1;
 
   // Get all masters
   const masters = await Master_Model.find()
-    .populate('accountId', 'name email userProfileUrl')
+    .populate("accountId", "name email userProfileUrl")
     .sort(sortOptions)
     .skip(skip)
     .limit(limit);
@@ -68,21 +74,22 @@ const get_top_traders = async (
   if (currentUserId) {
     const follows = await Follow_Model.find({
       followerId: new Types.ObjectId(currentUserId),
-      masterId: { $in: masters.map(m => m.accountId) }
-    }).select('masterId');
-    followedMasterIds = new Set(follows.map(f => f.masterId.toString()));
+      masterId: { $in: masters.map((m) => m.accountId) },
+    }).select("masterId");
+    followedMasterIds = new Set(follows.map((f) => f.masterId.toString()));
   }
 
   // Get referral badges for all masters in the list
-  const masterAccountIds = masters.map(m => m.accountId._id);
+  const masterAccountIds = masters.map((m) => m.accountId._id);
   const referralCounts = await Referral_Model.aggregate([
     { $match: { referrerId: { $in: masterAccountIds }, status: "COMPLETED" } },
-    { $group: { _id: "$referrerId", count: { $sum: 1 } } }
+    { $group: { _id: "$referrerId", count: { $sum: 1 } } },
   ]);
 
   const referralBadgeMap: Record<string, string> = {};
-  referralCounts.forEach(rc => {
-    referralBadgeMap[rc._id.toString()] = referral_services.get_badge_by_referral_count(rc.count);
+  referralCounts.forEach((rc) => {
+    referralBadgeMap[rc._id.toString()] =
+      referral_services.get_badge_by_referral_count(rc.count);
   });
 
   // Enrich with recent signal performance for context
@@ -91,7 +98,7 @@ const get_top_traders = async (
       // Get recent signals count for activity context
       const recentSignalsCount = await Signal_Model.countDocuments({
         authorId: master.accountId,
-        status: 'completed',
+        status: "completed",
         closedAt: { $gte: startDate },
       });
 
@@ -100,8 +107,8 @@ const get_top_traders = async (
       return {
         _id: master._id,
         accountId: master.accountId,
-        name: (master.accountId as any)?.name || '',
-        userProfileUrl: (master.accountId as any)?.userProfileUrl || '',
+        name: (master.accountId as any)?.name || "",
+        userProfileUrl: (master.accountId as any)?.userProfileUrl || "",
         bio: master.bio,
         specialties: master.specialties,
         winRate: master.winRate,
@@ -111,12 +118,14 @@ const get_top_traders = async (
         losingSignals: master.losingSignals,
         followerCount: master.followerCount,
         isFeatured: master.isFeatured,
-        isFollow: currentUserId ? followedMasterIds.has(master.accountId.toString()) : false,
+        isFollow: currentUserId
+          ? followedMasterIds.has(master.accountId.toString())
+          : false,
         recentSignalsCount,
         rank: skip + masters.indexOf(master) + 1,
-        badgeName: referralBadgeMap[accountId] || "Rookie"
+        badgeName: referralBadgeMap[accountId] || "Rookie",
       };
-    })
+    }),
   );
 
   return {
@@ -135,10 +144,13 @@ const get_top_traders = async (
 /**
  * Get trader performance details for a specific master
  */
-const get_trader_performance = async (accountId: string, currentUserId?: string) => {
+const get_trader_performance = async (
+  accountId: string,
+  currentUserId?: string,
+) => {
   const master = await Master_Model.findOne({
     accountId: new Types.ObjectId(accountId),
-  }).populate('accountId', 'name email userProfileUrl');
+  }).populate("accountId", "name email userProfileUrl");
 
   if (!master) {
     return null;
@@ -149,7 +161,7 @@ const get_trader_performance = async (accountId: string, currentUserId?: string)
   if (currentUserId) {
     const followRecord = await Follow_Model.findOne({
       followerId: new Types.ObjectId(currentUserId),
-      masterId: new Types.ObjectId(accountId)
+      masterId: new Types.ObjectId(accountId),
     });
     isFollow = !!followRecord;
   }
@@ -157,7 +169,7 @@ const get_trader_performance = async (accountId: string, currentUserId?: string)
   // Get all signals for detailed breakdown
   const signals = await Signal_Model.find({
     authorId: new Types.ObjectId(accountId),
-    status: 'completed',
+    status: "completed",
   }).sort({ closedAt: -1 });
 
   const profitableSignals = signals.filter((s) => (s.resultPnl || 0) > 0);
@@ -165,26 +177,31 @@ const get_trader_performance = async (accountId: string, currentUserId?: string)
   const breakevenSignals = signals.filter((s) => (s.resultPnl || 0) === 0);
 
   const totalPnl = signals.reduce((sum, s) => sum + (s.resultPnl || 0), 0);
-  const avgWinAmount = profitableSignals.length > 0
-    ? profitableSignals.reduce((sum, s) => sum + (s.resultPnl || 0), 0) / profitableSignals.length
-    : 0;
-  const avgLossAmount = losingSignals.length > 0
-    ? losingSignals.reduce((sum, s) => sum + (s.resultPnl || 0), 0) / losingSignals.length
-    : 0;
+  const avgWinAmount =
+    profitableSignals.length > 0
+      ? profitableSignals.reduce((sum, s) => sum + (s.resultPnl || 0), 0) /
+        profitableSignals.length
+      : 0;
+  const avgLossAmount =
+    losingSignals.length > 0
+      ? losingSignals.reduce((sum, s) => sum + (s.resultPnl || 0), 0) /
+        losingSignals.length
+      : 0;
 
   // Get referral badge
   const activeReferrals = await Referral_Model.countDocuments({
     referrerId: new Types.ObjectId(accountId),
     status: "COMPLETED",
   });
-  const badgeName = referral_services.get_badge_by_referral_count(activeReferrals);
+  const badgeName =
+    referral_services.get_badge_by_referral_count(activeReferrals);
 
   return {
     profile: {
       _id: master._id,
       accountId: master.accountId,
-      name: (master.accountId as any)?.name || '',
-      userProfileUrl: (master.accountId as any)?.userProfileUrl || '',
+      name: (master.accountId as any)?.name || "",
+      userProfileUrl: (master.accountId as any)?.userProfileUrl || "",
       bio: master.bio,
       specialties: master.specialties,
       isFollow,
@@ -216,11 +233,11 @@ const get_trader_performance = async (accountId: string, currentUserId?: string)
 const compare_traders = async (accountId1: string, accountId2: string) => {
   const trader1 = await Master_Model.findOne({
     accountId: new Types.ObjectId(accountId1),
-  }).populate('accountId', 'name email userProfileUrl');
+  }).populate("accountId", "name email userProfileUrl");
 
   const trader2 = await Master_Model.findOne({
     accountId: new Types.ObjectId(accountId2),
-  }).populate('accountId', 'name email userProfileUrl');
+  }).populate("accountId", "name email userProfileUrl");
 
   if (!trader1 || !trader2) {
     return null;
@@ -230,19 +247,21 @@ const compare_traders = async (accountId1: string, accountId2: string) => {
     referrerId: new Types.ObjectId(accountId1),
     status: "COMPLETED",
   });
-  const badgeName1 = referral_services.get_badge_by_referral_count(activeReferrals1);
+  const badgeName1 =
+    referral_services.get_badge_by_referral_count(activeReferrals1);
 
   const activeReferrals2 = await Referral_Model.countDocuments({
     referrerId: new Types.ObjectId(accountId2),
     status: "COMPLETED",
   });
-  const badgeName2 = referral_services.get_badge_by_referral_count(activeReferrals2);
+  const badgeName2 =
+    referral_services.get_badge_by_referral_count(activeReferrals2);
 
   return {
     trader1: {
       accountId: trader1.accountId,
-      name: (trader1.accountId as any)?.name || '',
-      userProfileUrl: (trader1.accountId as any)?.userProfileUrl || '',
+      name: (trader1.accountId as any)?.name || "",
+      userProfileUrl: (trader1.accountId as any)?.userProfileUrl || "",
       winRate: trader1.winRate,
       avgPnl: trader1.avgPnl,
       totalSignals: trader1.totalSignals,
@@ -253,8 +272,8 @@ const compare_traders = async (accountId1: string, accountId2: string) => {
     },
     trader2: {
       accountId: trader2.accountId,
-      name: (trader2.accountId as any)?.name || '',
-      userProfileUrl: (trader2.accountId as any)?.userProfileUrl || '',
+      name: (trader2.accountId as any)?.name || "",
+      userProfileUrl: (trader2.accountId as any)?.userProfileUrl || "",
       winRate: trader2.winRate,
       avgPnl: trader2.avgPnl,
       totalSignals: trader2.totalSignals,

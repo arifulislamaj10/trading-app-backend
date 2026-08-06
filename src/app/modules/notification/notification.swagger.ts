@@ -3,13 +3,38 @@ export const notificationSwaggerDocs = {
     get: {
       tags: ["Notifications"],
       summary: "Get notifications (all or unread only)",
-      description: "Retrieve paginated list of notifications for the authenticated user. Leave query empty for all notifications, or use `?isRead=true` for unread only.",
+      description:
+        "Retrieve paginated list of notifications for the authenticated user. Leave query empty for all notifications, or use `?isRead=true` for unread only.",
       security: [{ bearerAuth: [] }],
       parameters: [
         { name: "page", in: "query", schema: { type: "integer", default: 1 } },
-        { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
-        { name: "isRead", in: "query", schema: { type: "boolean" }, description: "Filter by read status. Use `true` for unread only." },
-        { name: "type", in: "query", schema: { type: "string", enum: ["new_signal", "subscription_active", "subscription_expiring", "subscription_canceled", "payment_succeeded", "payment_failed", "system_announcement"] } },
+        {
+          name: "limit",
+          in: "query",
+          schema: { type: "integer", default: 20 },
+        },
+        {
+          name: "isRead",
+          in: "query",
+          schema: { type: "boolean" },
+          description: "Filter by read status. Use `true` for unread only.",
+        },
+        {
+          name: "type",
+          in: "query",
+          schema: {
+            type: "string",
+            enum: [
+              "new_signal",
+              "subscription_active",
+              "subscription_expiring",
+              "subscription_canceled",
+              "payment_succeeded",
+              "payment_failed",
+              "system_announcement",
+            ],
+          },
+        },
       ],
       responses: {
         200: {
@@ -20,7 +45,10 @@ export const notificationSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "Notifications retrieved" },
+                  message: {
+                    type: "string",
+                    example: "Notifications retrieved",
+                  },
                   data: {
                     type: "array",
                     items: {
@@ -28,8 +56,15 @@ export const notificationSwaggerDocs = {
                       properties: {
                         _id: { type: "string" },
                         type: { type: "string", example: "new_signal" },
-                        title: { type: "string", example: "New Signal from MasterTrader1" },
-                        message: { type: "string", example: "MasterTrader1 just posted a new EUR/USD long signal" },
+                        title: {
+                          type: "string",
+                          example: "New Signal from MasterTrader1",
+                        },
+                        message: {
+                          type: "string",
+                          example:
+                            "MasterTrader1 just posted a new EUR/USD long signal",
+                        },
                         isRead: { type: "boolean", example: false },
                         link: { type: "string", example: "/signals/abc123" },
                         createdAt: { type: "string", format: "date-time" },
@@ -56,10 +91,18 @@ export const notificationSwaggerDocs = {
     patch: {
       tags: ["Notifications"],
       summary: "Mark all notifications as read OR update a single notification",
-      description: "Two behaviors merged into one endpoint:\n1. **Mark all as read**: Send `PATCH /notifications` with body `{ \"isRead\": true }`\n2. **Update single notification**: Send `PATCH /notifications/{id}` with body `{ \"isRead\": true/false }`",
+      description:
+        'Two behaviors merged into one endpoint:\n1. **Mark all as read**: Send `PATCH /notifications` with body `{ "isRead": true }`\n2. **Update single notification**: Send `PATCH /notifications/{id}` with body `{ "isRead": true/false }`',
       security: [{ bearerAuth: [] }],
       parameters: [
-        { name: "id", in: "path", required: false, schema: { type: "string" }, description: "Notification ID (omit or leave empty to mark all as read)" },
+        {
+          name: "id",
+          in: "path",
+          required: false,
+          schema: { type: "string" },
+          description:
+            "Notification ID (omit or leave empty to mark all as read)",
+        },
       ],
       requestBody: {
         required: true,
@@ -68,7 +111,12 @@ export const notificationSwaggerDocs = {
             schema: {
               type: "object",
               properties: {
-                isRead: { type: "boolean", example: true, description: "Set read status. Use `true` with no ID to mark all as read." },
+                isRead: {
+                  type: "boolean",
+                  example: true,
+                  description:
+                    "Set read status. Use `true` with no ID to mark all as read.",
+                },
               },
             },
           },
@@ -85,7 +133,10 @@ export const notificationSwaggerDocs = {
                     type: "object",
                     properties: {
                       success: { type: "boolean", example: true },
-                      message: { type: "string", example: "All notifications marked as read" },
+                      message: {
+                        type: "string",
+                        example: "All notifications marked as read",
+                      },
                       data: {
                         type: "object",
                         properties: {
@@ -98,7 +149,10 @@ export const notificationSwaggerDocs = {
                     type: "object",
                     properties: {
                       success: { type: "boolean", example: true },
-                      message: { type: "string", example: "Notification marked as read" },
+                      message: {
+                        type: "string",
+                        example: "Notification marked as read",
+                      },
                       data: {
                         type: "object",
                         properties: {
@@ -123,7 +177,8 @@ export const notificationSwaggerDocs = {
     get: {
       tags: ["Notifications"],
       summary: "Get unread notification count",
-      description: "Get the number of unread notifications for the authenticated user.",
+      description:
+        "Get the number of unread notifications for the authenticated user.",
       security: [{ bearerAuth: [] }],
       responses: {
         200: {
@@ -161,7 +216,10 @@ export const notificationSwaggerDocs = {
           description: "text/event-stream",
           content: {
             "text/event-stream": {
-              schema: { type: "string", example: "event: notification.created\\ndata: {...}\\n\\n" },
+              schema: {
+                type: "string",
+                example: "event: notification.created\\ndata: {...}\\n\\n",
+              },
             },
           },
         },
@@ -173,8 +231,10 @@ export const notificationSwaggerDocs = {
   "/api/v1/notifications/mark-all-read": {
     patch: {
       tags: ["Notifications"],
-      summary: "Mark all notifications as read (Deprecated - use PATCH /notifications instead)",
-      description: "⚠️ **Deprecated**: Use `PATCH /api/v1/notifications` with body `{ \"isRead\": true }` instead. This endpoint is kept for backward compatibility.\n\nMark all unread notifications for the authenticated user as read.",
+      summary:
+        "Mark all notifications as read (Deprecated - use PATCH /notifications instead)",
+      description:
+        '⚠️ **Deprecated**: Use `PATCH /api/v1/notifications` with body `{ "isRead": true }` instead. This endpoint is kept for backward compatibility.\n\nMark all unread notifications for the authenticated user as read.',
       deprecated: true,
       security: [{ bearerAuth: [] }],
       responses: {
@@ -186,7 +246,10 @@ export const notificationSwaggerDocs = {
                 type: "object",
                 properties: {
                   success: { type: "boolean", example: true },
-                  message: { type: "string", example: "All notifications marked as read" },
+                  message: {
+                    type: "string",
+                    example: "All notifications marked as read",
+                  },
                   data: {
                     type: "object",
                     properties: {
@@ -209,7 +272,13 @@ export const notificationSwaggerDocs = {
       description: "Permanently delete a notification.",
       security: [{ bearerAuth: [] }],
       parameters: [
-        { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Notification ID" },
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Notification ID",
+        },
       ],
       responses: {
         200: { description: "Notification deleted" },

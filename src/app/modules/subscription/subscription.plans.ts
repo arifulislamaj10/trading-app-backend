@@ -62,7 +62,12 @@ export const SubscriptionPlan_Model = model<ISubscriptionPlan>(
   subscriptionPlanSchema,
 );
 
-export const SUBSCRIPTION_TIER_ORDER = ["free", "basic", "pro", "master"] as const;
+export const SUBSCRIPTION_TIER_ORDER = [
+  "free",
+  "basic",
+  "pro",
+  "master",
+] as const;
 export type SubscriptionTierName = (typeof SUBSCRIPTION_TIER_ORDER)[number];
 
 const SHARED_FEATURES = [

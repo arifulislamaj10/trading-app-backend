@@ -21,9 +21,12 @@ const notifyWithdrawalStatus = async (
   userId: string,
   status: TWithdrawalStatus,
   amount: number,
-  adminNote?: string
+  adminNote?: string,
 ) => {
-  const statusMessages: Record<TWithdrawalStatus, { title: string; message: string }> = {
+  const statusMessages: Record<
+    TWithdrawalStatus,
+    { title: string; message: string }
+  > = {
     PENDING: {
       title: "Withdrawal Request Submitted",
       message: `Your withdrawal request for $${amount.toFixed(2)} has been submitted and is pending review.`,
@@ -55,7 +58,10 @@ const notifyWithdrawalStatus = async (
   });
 };
 
-const create_withdrawal_request_in_db = async (userId: string, payload: Partial<TWithdrawalRequest>) => {
+const create_withdrawal_request_in_db = async (
+  userId: string,
+  payload: Partial<TWithdrawalRequest>,
+) => {
   const account = await Account_Model.findById(userId);
   if (!account) {
     throw new AppError("Account not found", httpStatus.NOT_FOUND);
@@ -79,14 +85,17 @@ const create_withdrawal_request_in_db = async (userId: string, payload: Partial<
   if (existingPendingRequest) {
     throw new AppError(
       "You already have a pending withdrawal request. Please wait until it is processed.",
-      httpStatus.BAD_REQUEST
+      httpStatus.BAD_REQUEST,
     );
   }
 
   // Minimum withdrawal threshold (e.g., $10 or $1)
   const MIN_WITHDRAWAL = 1; // $1.00
   if (amount < MIN_WITHDRAWAL) {
-    throw new AppError(`Minimum withdrawal amount is $${MIN_WITHDRAWAL}`, httpStatus.BAD_REQUEST);
+    throw new AppError(
+      `Minimum withdrawal amount is $${MIN_WITHDRAWAL}`,
+      httpStatus.BAD_REQUEST,
+    );
   }
 
   const result = await Withdrawal_Model.create({
@@ -149,18 +158,28 @@ const get_all_withdrawals_from_db = async (query: any) => {
   };
 };
 
-const update_withdrawal_status_in_db = async (id: string, payload: { status: TWithdrawalStatus; adminNote?: string }) => {
+const update_withdrawal_status_in_db = async (
+  id: string,
+  payload: { status: TWithdrawalStatus; adminNote?: string },
+) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const withdrawalRequest = await Withdrawal_Model.findById(id).session(session);
+    const withdrawalRequest =
+      await Withdrawal_Model.findById(id).session(session);
     if (!withdrawalRequest) {
       throw new AppError("Withdrawal request not found", httpStatus.NOT_FOUND);
     }
 
-    if (withdrawalRequest.status === "COMPLETED" || withdrawalRequest.status === "REJECTED") {
-      throw new AppError(`Request already ${withdrawalRequest.status.toLowerCase()}`, httpStatus.BAD_REQUEST);
+    if (
+      withdrawalRequest.status === "COMPLETED" ||
+      withdrawalRequest.status === "REJECTED"
+    ) {
+      throw new AppError(
+        `Request already ${withdrawalRequest.status.toLowerCase()}`,
+        httpStatus.BAD_REQUEST,
+      );
     }
 
     const shouldDeduct =
@@ -171,52 +190,67 @@ const update_withdrawal_status_in_db = async (id: string, payload: { status: TWi
       withdrawalRequest.status === "APPROVED" && payload.status === "REJECTED";
 
     if (shouldDeduct) {
-      const account = await Account_Model.findById(withdrawalRequest.userId).session(session);
+      const account = await Account_Model.findById(
+        withdrawalRequest.userId,
+      ).session(session);
       if (!account) {
         throw new AppError("Account not found", httpStatus.NOT_FOUND);
       }
 
       if (account.walletBalance < withdrawalRequest.amount) {
-        throw new AppError("Insufficient balance to approve this request", httpStatus.BAD_REQUEST);
+        throw new AppError(
+          "Insufficient balance to approve this request",
+          httpStatus.BAD_REQUEST,
+        );
       }
 
       await Account_Model.findByIdAndUpdate(
         withdrawalRequest.userId,
         { $inc: { walletBalance: -withdrawalRequest.amount } },
-        { session }
+        { session },
       );
 
-      await WalletTransaction_Model.create([{
-        userId: withdrawalRequest.userId,
-        amount: withdrawalRequest.amount,
-        type: "WITHDRAWAL",
-        status: "COMPLETED",
-        referenceId: withdrawalRequest._id,
-        description: "Wallet withdrawal",
-      }], { session });
+      await WalletTransaction_Model.create(
+        [
+          {
+            userId: withdrawalRequest.userId,
+            amount: withdrawalRequest.amount,
+            type: "WITHDRAWAL",
+            status: "COMPLETED",
+            referenceId: withdrawalRequest._id,
+            description: "Wallet withdrawal",
+          },
+        ],
+        { session },
+      );
     }
 
     if (shouldRefund) {
       await Account_Model.findByIdAndUpdate(
         withdrawalRequest.userId,
         { $inc: { walletBalance: withdrawalRequest.amount } },
-        { session }
+        { session },
       );
 
-      await WalletTransaction_Model.create([{
-        userId: withdrawalRequest.userId,
-        amount: withdrawalRequest.amount,
-        type: "REFUND",
-        status: "COMPLETED",
-        referenceId: withdrawalRequest._id,
-        description: "Withdrawal rejection refund",
-      }], { session });
+      await WalletTransaction_Model.create(
+        [
+          {
+            userId: withdrawalRequest.userId,
+            amount: withdrawalRequest.amount,
+            type: "REFUND",
+            status: "COMPLETED",
+            referenceId: withdrawalRequest._id,
+            description: "Withdrawal rejection refund",
+          },
+        ],
+        { session },
+      );
     }
-    
+
     const result = await Withdrawal_Model.findByIdAndUpdate(
       id,
       { status: payload.status, adminNote: payload.adminNote },
-      { new: true, session }
+      { new: true, session },
     );
 
     await session.commitTransaction();
@@ -226,7 +260,7 @@ const update_withdrawal_status_in_db = async (id: string, payload: { status: TWi
       withdrawalRequest.userId.toString(),
       payload.status,
       withdrawalRequest.amount,
-      payload.adminNote
+      payload.adminNote,
     );
 
     return result;

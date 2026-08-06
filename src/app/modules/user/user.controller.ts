@@ -47,7 +47,8 @@ const update_user_status = catchAsync(async (req, res) => {
     manageResponse(res, {
       success: false,
       statusCode: httpStatus.BAD_REQUEST,
-      message: "Status is required in request body. Use 'ACTIVE', 'INACTIVE', or 'SUSPENDED'",
+      message:
+        "Status is required in request body. Use 'ACTIVE', 'INACTIVE', or 'SUSPENDED'",
       data: null,
     });
     return;
@@ -79,15 +80,18 @@ const delete_user = catchAsync(async (req, res) => {
 const sync_timezone = catchAsync(async (req, res) => {
   const email = req.user?.email;
   if (!email) {
-    throw new AppError('User email not found', httpStatus.UNAUTHORIZED);
+    throw new AppError("User email not found", httpStatus.UNAUTHORIZED);
   }
 
-  const result = await user_services.sync_timezone_to_profile(email, req.body.timezone);
+  const result = await user_services.sync_timezone_to_profile(
+    email,
+    req.body.timezone,
+  );
 
   manageResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
-    message: 'Timezone synced successfully',
+    message: "Timezone synced successfully",
     data: result,
   });
 });

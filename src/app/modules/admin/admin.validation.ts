@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 const isValidTimezone = (tz: string) => {
   try {
@@ -10,16 +10,16 @@ const isValidTimezone = (tz: string) => {
 };
 
 const audienceTypeEnum = z.enum([
-  'ALL',
-  'ROLE_USER',
-  'ROLE_MASTER',
-  'ROLE_ADMIN',
-  'SUBSCRIPTION_TIER',
-  'ACTIVE_SUBSCRIBERS',
-  'FOLLOWERS_OF_MASTER',
+  "ALL",
+  "ROLE_USER",
+  "ROLE_MASTER",
+  "ROLE_ADMIN",
+  "SUBSCRIPTION_TIER",
+  "ACTIVE_SUBSCRIBERS",
+  "FOLLOWERS_OF_MASTER",
 ]);
 
-const subscriptionTierEnum = z.enum(['free', 'basic', 'pro', 'master']);
+const subscriptionTierEnum = z.enum(["free", "basic", "pro", "master"]);
 
 const audienceSchema = z
   .object({
@@ -28,18 +28,19 @@ const audienceSchema = z
     masterId: z.string().optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.type === 'SUBSCRIPTION_TIER' && !data.tier) {
+    if (data.type === "SUBSCRIPTION_TIER" && !data.tier) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'tier is required when audience type is SUBSCRIPTION_TIER',
-        path: ['tier'],
+        message: "tier is required when audience type is SUBSCRIPTION_TIER",
+        path: ["tier"],
       });
     }
-    if (data.type === 'FOLLOWERS_OF_MASTER' && !data.masterId) {
+    if (data.type === "FOLLOWERS_OF_MASTER" && !data.masterId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'masterId is required when audience type is FOLLOWERS_OF_MASTER',
-        path: ['masterId'],
+        message:
+          "masterId is required when audience type is FOLLOWERS_OF_MASTER",
+        path: ["masterId"],
       });
     }
   });
@@ -59,10 +60,10 @@ const broadcast_announcement = z
   .object({
     title: z.string().min(1).max(255),
     message: z.string().min(1),
-    link: z.string().url().optional().or(z.literal('')),
+    link: z.string().url().optional().or(z.literal("")),
     audience: audienceSchema.optional(),
-    targetRole: z.enum(['USER', 'MASTER', 'ADMIN']).optional(),
-    role: z.enum(['USER', 'MASTER', 'ADMIN']).optional(),
+    targetRole: z.enum(["USER", "MASTER", "ADMIN"]).optional(),
+    role: z.enum(["USER", "MASTER", "ADMIN"]).optional(),
     eventAt: z.string().min(1).optional(),
     eventTimezone: z.string().optional(),
     scheduledSendAt: z.string().min(1).optional(),
@@ -72,15 +73,15 @@ const broadcast_announcement = z
     if (data.eventAt && !data.eventTimezone) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'eventTimezone is required when eventAt is provided',
-        path: ['eventTimezone'],
+        message: "eventTimezone is required when eventAt is provided",
+        path: ["eventTimezone"],
       });
     }
     if (data.eventTimezone && !isValidTimezone(data.eventTimezone)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Invalid IANA timezone',
-        path: ['eventTimezone'],
+        message: "Invalid IANA timezone",
+        path: ["eventTimezone"],
       });
     }
     if (data.eventAt) {
@@ -88,16 +89,19 @@ const broadcast_announcement = z
       if (Number.isNaN(eventAt.getTime())) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Invalid event date',
-          path: ['eventAt'],
+          message: "Invalid event date",
+          path: ["eventAt"],
         });
       }
     }
-    if (data.scheduledSendTimezone && !isValidTimezone(data.scheduledSendTimezone)) {
+    if (
+      data.scheduledSendTimezone &&
+      !isValidTimezone(data.scheduledSendTimezone)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Invalid delivery timezone',
-        path: ['scheduledSendTimezone'],
+        message: "Invalid delivery timezone",
+        path: ["scheduledSendTimezone"],
       });
     }
     if (data.scheduledSendAt) {
@@ -105,14 +109,14 @@ const broadcast_announcement = z
       if (Number.isNaN(sendAt.getTime())) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Invalid scheduled delivery date',
-          path: ['scheduledSendAt'],
+          message: "Invalid scheduled delivery date",
+          path: ["scheduledSendAt"],
         });
       } else if (sendAt.getTime() <= Date.now() - 5000) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Scheduled delivery must be in the future',
-          path: ['scheduledSendAt'],
+          message: "Scheduled delivery must be in the future",
+          path: ["scheduledSendAt"],
         });
       }
     }
